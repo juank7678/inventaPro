@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Base de datos (no subir la DB local)
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos temporales
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Reportes generados
+reportes/
+*.xlsx
+*.pdf
+
+# Variables de entorno
+.env
+.env.local

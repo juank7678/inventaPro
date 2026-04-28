@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block title %}Reportes{% endblock %}
+{% block page_title %}Reportes Descargables{% endblock %}
+
+{% block topbar_actions %}
+<div class="tabs" style="margin:0;flex:0 0 auto">
+  <button class="tab active" onclick="setPeriodoReporte('dia',this)">📅 Hoy</button>
+  <button class="tab" onclick="setPeriodoReporte('semana',this)">📊 Semana</button>
+  <button class="tab" onclick="setPeriodoReporte('mes',this)">🗓️ Mes</button>
+  <button class="tab" onclick="setPeriodoReporte('todo',this)">📂 Todo</button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:800px;margin:0 auto">
+
+  <div class="alert-banner alert-info" style="margin-bottom:28px">
+    📊 Selecciona el período y genera reportes ejecutivos con KPIs, top productos y alertas de inventario.
+  </div>
+
+  <!-- Indicador de período seleccionado -->
+  <div class="card" style="margin-bottom:20px;text-align:center">
+    <div style="font-size:13px;color:var(--text-muted)">Período seleccionado</div>
+    <div style="font-size:22px;font-weight:700;color:var(--accent)" id="periodo-label">Hoy</div>
+    <div style="font-size:12px;color:var(--text-muted)" id="periodo-rango"></div>
+  </div>
+
+  <!-- Excel -->
+  <div class="report-card">
+    <div class="report-icon">📗</div>
+    <div class="report-info">
+      <div class="report-title">Reporte Excel Completo</div>
+      <div class="report-desc">
+        Incluye 3 hojas: <strong>Ventas</strong> (detalle del período),
+        <strong>Análisis</strong> (por producto) e <strong>Inventario</strong> (estado actual de stock).
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <span class="badge badge-green">✓ Ventas del período</span>
+        <span class="badge badge-green">✓ Análisis por producto</span>
+        <span class="badge badge-green">✓ Estado de inventario</span>
+      </div>
+    </div>
+    <button class="btn btn-success btn-lg" onclick="downloadReport('excel')">
+      ⬇ Excel
+    </button>
+  </div>
+
+  <!-- PDF -->
+  <div class="report-card">
+    <div class="report-icon">📕</div>
+    <div class="report-info">
+      <div class="report-title">Reporte PDF Ejecutivo</div>
+      <div class="report-desc">
+        Resumen ejecutivo con <strong>KPIs clave del período</strong>, top productos por ingresos y
+        alertas críticas de inventario.
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <span class="badge badge-blue">✓ KPIs del período</span>
+        <span class="badge badge-blue">✓ Top 10 productos</span>
+        <span class="badge badge-red">✓ Alertas inventario</span>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-lg" onclick="downloadReport('pdf')">
+      ⬇ PDF
+    </button>
+  </div>
+
+  <!-- Summary stats del período -->
+  <div class="card" style="margin-top:28px">
+    <div class="card-header"><span class="card-title">📈 Resumen del Período</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px" id="report-stats">
+      <div style="text-align:center;padding:16px;background:var(--surface);border-radius:var(--radius-sm)">
+        <div style="font-size:26px;font-weight:700;color:var(--accent)" id="rs-ventas">—</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Ventas Totales</div>
+      </div>
+      <div style="text-align:center;padding:16px;background:var(--surface);border-radius:var(--radius-sm)">
+        <div style="font-size:26px;font-weight:700;color:var(--green)" id="rs-util">—</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Utilidad Total</div>
+      </div>
+      <div style="text-align:center;padding:16px;background:var(--surface);border-radius:var(--radius-sm)">
+        <div style="font-size:26px;font-weight:700" id="rs-tx">—</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Transacciones</div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px">
+      <div class="card-header" style="margin-bottom:12px"><span class="card-title" style="font-size:13px">🏆 Top
+          Productos del período</span></div>
+      <div id="report-top-prods"></div>
+    </div>
+  </div>
+
+  <!-- Config empresa -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-header"><span class="card-title">⚙️ Datos de la Empresa</span></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nombre de la empresa</label>
+        <input class="form-control" id="cfg-empresa" placeholder="Mi Empresa">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Capital inicial ($)</label>
+        <input class="form-control" id="cfg-capital" type="number" placeholder="10000000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Meta mensual ($)</label>
+        <input class="form-control" id="cfg-meta" type="number" placeholder="5000000">
+      </div>
+    </div>
+    <button class="btn btn-ghost" onclick="saveConfig()">💾 Guardar configuración</button>
+  </div>
+</div>
+
+<script>
+  let periodoActual = 'dia';
+
+  function getFechasPeriodo(periodo) {
+    const hoy = new Date();
+    const fechaInicio = new Date(hoy);
+
+    switch (periodo) {
+      case 'dia':
+        fechaInicio.setHours(0, 0, 0, 0);
+        return { inicio: fechaInicio, fin: hoy, label: 'Hoy' };
+      case 'semana':
+        const diaSemana = hoy.getDay();
+        const diff = diaSemana === 0 ? 6 : diaSemana - 1;
+        fechaInicio.setDate(hoy.getDate() - diff);
+        fechaInicio.setHours(0, 0, 0, 0);
+        return { inicio: fechaInicio, fin: hoy, label: 'Esta semana' };
+      case 'mes':
+        fechaInicio.setDate(1);
+        fechaInicio.setHours(0, 0, 0, 0);
+        return { inicio: fechaInicio, fin: hoy, label: 'Este mes' };
+      case 'todo':
+        fechaInicio.setFullYear(2000, 0, 1);
+        return { inicio: fechaInicio, fin: hoy, label: 'Todo el historial' };
+      default:
+        return { inicio: hoy, fin: hoy, label: 'Hoy' };
+    }
+  }
+
+  function formatDate(date) {
+    return date.toISOString().split('T')[0];
+  }
+
+  function setPeriodoReporte(periodo, el) {
+    periodoActual = periodo;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    if (el) el.classList.add('active');
+
+    const fechas = getFechasPeriodo(periodoActual);
+    let rangoTexto = '';
+
+    if (periodoActual === 'todo') {
+      rangoTexto = 'Todos los datos históricos';
+    } else if (periodoActual === 'dia') {
+      rangoTexto = `Fecha: ${formatDate(fechas.inicio)}`;
+    } else {
+      rangoTexto = `Desde ${formatDate(fechas.inicio)} hasta ${formatDate(fechas.fin)}`;
+    }
+
+    document.getElementById('periodo-label').textContent = fechas.label;
+    document.getElementById('periodo-rango').textContent = rangoTexto;
+
+    loadReportData();
+  }
+
+  async function loadReportData() {
+    const fechas = getFechasPeriodo(periodoActual);
+    const params = new URLSearchParams({
+      inicio: formatDate(fechas.inicio),
+      fin: formatDate(fechas.fin),
+      periodo: periodoActual
+    });
+
+    const r = await fetch(`/api/reporte-data?${params}`);
+    const d = await r.json();
+
+    document.getElementById('rs-ventas').textContent = fmt(d.ventas_total);
+    document.getElementById('rs-util').textContent = fmt(d.utilidad_total);
+    document.getElementById('rs-tx').textContent = d.total_transacciones;
+
+    const topEl = document.getElementById('report-top-prods');
+    if (d.top_productos && d.top_productos.length) {
+      const max = d.top_productos[0].ingreso || 1;
+      topEl.innerHTML = d.top_productos.map((p, i) => `
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span><strong>${i + 1}.</strong> ${p.nombre}</span>
+          <span style="color:var(--text-muted)">${fmt(p.ingreso)}</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${p.ingreso / max * 100}%"></div></div>
+      </div>`).join('');
+    } else {
+      topEl.innerHTML = '<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:12px">Sin datos de ventas en este período</div>';
+    }
+
+    const cfg = await (await fetch('/api/config')).json();
+    document.getElementById('cfg-empresa').value = cfg.empresa || '';
+    document.getElementById('cfg-capital').value = cfg.capital_inicial || '';
+    document.getElementById('cfg-meta').value = cfg.meta_mensual || '';
+  }
+
+  async function downloadReport(type) {
+    const fechas = getFechasPeriodo(periodoActual);
+    const params = new URLSearchParams({
+      inicio: formatDate(fechas.inicio),
+      fin: formatDate(fechas.fin),
+      periodo: periodoActual
+    });
+
+    const btn = event.target;
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generando...';
+
+    try {
+      const r = await fetch(`/api/reporte/${type}?${params}`);
+      if (!r.ok) {
+        const e = await r.json();
+        toast('Error: ' + (e.error || 'Error al generar'), 'error');
+        return;
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reporte_inventa_${periodoActual}_${new Date().toISOString().split('T')[0]}.${type === 'excel' ? 'xlsx' : 'pdf'}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast(`Reporte ${type.toUpperCase()} descargado exitosamente`, 'success');
+    } catch (e) {
+      toast('Error de conexión', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+    }
+  }
+
+  async function saveConfig() {
+    const b = {
+      empresa: document.getElementById('cfg-empresa').value,
+      capital_inicial: parseFloat(document.getElementById('cfg-capital').value) || 0,
+      meta_mensual: parseFloat(document.getElementById('cfg-meta').value) || 0
+    };
+    const r = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+    const d = await r.json();
+    toast(d.success ? 'Configuración guardada' : 'Error al guardar', d.success ? 'success' : 'error');
+  }
+
+  // Inicializar
+  setPeriodoReporte('dia', document.querySelector('.tab.active'));
+</script>
+{% endblock %}

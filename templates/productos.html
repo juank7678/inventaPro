@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  {% extends "base.html" %}
+  {% block title %}Inventario{% endblock %}
+  {% block page_title %}Gestión de Inventario{% endblock %}
+
+  {% block topbar_actions %}
+  <button class="btn btn-ghost btn-sm" onclick="openUploadModal()">
+    📤 Carga Masiva
+  </button>
+  <button class="btn btn-ghost btn-sm" onclick="runAnalisis()" id="btn-analisis">
+    🧠 Analizar Inventario
+  </button>
+  <button class="btn btn-primary" onclick="openModalAdd()">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+    Nuevo Producto
+  </button>
+  {% endblock %}
+
+  {% block content %}
+  <!-- Summary KPIs -->
+  <div class="kpi-grid" id="inv-kpis" style="margin-bottom:24px">
+    <div class="kpi-card anim-1">
+      <div class="kpi-icon">📦</div>
+      <div class="kpi-label">Total Productos</div>
+      <div class="kpi-value" id="total-prods">—</div>
+    </div>
+    <div class="kpi-card anim-2">
+      <div class="kpi-icon">🚫</div>
+      <div class="kpi-label">Agotados</div>
+      <div class="kpi-value red" id="total-agotados">—</div>
+    </div>
+    <div class="kpi-card anim-3">
+      <div class="kpi-icon">⚠️</div>
+      <div class="kpi-label">Stock Bajo</div>
+      <div class="kpi-value" style="color:var(--orange)" id="total-bajos">—</div>
+    </div>
+    <div class="kpi-card anim-4">
+      <div class="kpi-icon">📢</div>
+      <div class="kpi-label">A Promover</div>
+      <div class="kpi-value blue" id="total-promover">—</div>
+    </div>
+  </div>
+
+  <!-- Alerts + Suggestions -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+    <div class="card">
+      <div class="card-header"><span class="card-title">🚨 Alertas de Stock</span></div>
+      <div id="alertas-section">
+        <div class="empty-state" style="padding:20px">
+          <div class="empty-icon">✅</div>
+          <div class="empty-sub">Sin alertas</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">🛒 Sugerencias de Compra</span></div>
+      <div id="sugerencias-section">
+        <div class="empty-state" style="padding:20px">
+          <div class="empty-icon">💡</div>
+          <div class="empty-sub">Sin sugerencias</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Análisis inteligente -->
+  <div id="analisis-panel" style="display:none;margin-bottom:24px">
+    <div class="card"
+      style="margin-bottom:16px;border-color:rgba(88,86,214,0.3);background:linear-gradient(135deg,rgba(88,86,214,0.06) 0%,rgba(0,0,0,0) 100%)">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div
+            style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#5856d6;margin-bottom:6px">
+            🧠 Análisis Inteligente de Inventario</div>
+          <div style="font-size:15px;font-weight:600" id="ai-summary-txt">Analizando...</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:4px" id="ai-summary-sub"></div>
+        </div>
+        <div style="display:flex;gap:16px;text-align:center">
+          <div>
+            <div style="font-size:24px;font-weight:800;color:var(--red)" id="ai-criticos">0</div>
+            <div style="font-size:11px;color:var(--text-muted)">Críticos</div>
+          </div>
+          <div>
+            <div style="font-size:24px;font-weight:800;color:var(--orange)" id="ai-oportunidades">0</div>
+            <div style="font-size:11px;color:var(--text-muted)">Oportunidades</div>
+          </div>
+          <div>
+            <div style="font-size:24px;font-weight:800;color:var(--green)" id="ai-saludables">0</div>
+            <div style="font-size:11px;color:var(--text-muted)">Saludables</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+      <div class="card" style="border-color:rgba(255,69,58,0.25)">
+        <div class="card-header"><span class="card-title">🗑️ Sacar del Inventario</span><span class="badge badge-red"
+            id="badge-sacar">0</span></div>
+        <div id="lista-sacar"></div>
+      </div>
+      <div class="card" style="border-color:rgba(255,159,10,0.25)">
+        <div class="card-header"><span class="card-title">📢 Poner en Promoción</span><span class="badge badge-orange"
+            id="badge-promover">0</span></div>
+        <div id="lista-promover"></div>
+      </div>
+      <div class="card" style="border-color:rgba(255,255,255,0.08)">
+        <div class="card-header"><span class="card-title">💤 Sin Movimiento</span><span class="badge badge-dim"
+            id="badge-sin-ventas">0</span></div>
+        <div id="lista-sin-ventas"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Products table -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📦 Catálogo de Productos</span>
+      <input class="form-control" style="width:220px;padding:7px 12px;font-size:13px" placeholder="🔍 Buscar..."
+        oninput="filterProds(this.value)">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Categoría</th>
+            <th>Precio Venta</th>
+            <th>Costo</th>
+            <th>Margen</th>
+            <th>Stock</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-prods"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal Add/Edit Producto -->
+  <div class="modal-overlay" id="modal-prod">
+    <div class="modal">
+      <div class="modal-title" id="modal-prod-title">Nuevo Producto</div>
+      <input type="hidden" id="prod-id">
+      <div class="form-row">
+        <div class="form-group" style="grid-column:span 2">
+          <label class="form-label">Nombre del producto</label>
+          <input class="form-control" id="prod-nombre" placeholder="Ej: Camiseta Básica">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoría</label>
+          <input class="form-control" id="prod-categoria" placeholder="Ej: Ropa">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Precio de venta</label>
+          <input class="form-control" id="prod-precio" type="number" placeholder="45000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Costo</label>
+          <input class="form-control" id="prod-costo" type="number" placeholder="20000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stock actual</label>
+          <input class="form-control" id="prod-stock" type="number" placeholder="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stock mínimo (alerta)</label>
+          <input class="form-control" id="prod-stock-min" type="number" placeholder="10">
+        </div>
+      </div>
+      <div id="calc-margen" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('modal-prod')">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveProd()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Upload Masivo -->
+  <div class="modal-overlay" id="modal-upload">
+    <div class="modal">
+      <div class="modal-title">📤 Carga Masiva de Inventario</div>
+      <div class="upload-zone" id="upload-zone-inv">
+        <input type="file" id="file-inventario" accept=".xlsx,.xls" onchange="uploadInventarioFile(event)">
+        <div class="upload-icon">📊</div>
+        <div class="upload-title">Arrastra tu Excel aquí o haz clic</div>
+        <div class="upload-sub">Columnas requeridas: nombre, precio_venta, costo<br>Opcionales: categoria, stock_actual,
+          stock_minimo, codigo_barras, ubicacion</div>
+      </div>
+      <div id="upload-progress-inv" style="display:none;margin-top:16px">
+        <div class="progress-bar">
+          <div class="progress-fill" id="prog-bar-inv" style="width:0%"></div>
+        </div>
+        <div id="upload-status-inv" style="font-size:12px;margin-top:6px"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('modal-upload')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+  {% endblock %}
+
+  {% block scripts %}
+  <script>
+    let allProds = [];
+
+    async function loadInventario() {
+      const r = await fetch('/api/inventario');
+      const d = await r.json();
+      allProds = d.productos || [];
+
+      document.getElementById('total-prods').textContent = allProds.length;
+      document.getElementById('total-agotados').textContent = allProds.filter(p => p.estado === 'agotado').length;
+      document.getElementById('total-bajos').textContent = allProds.filter(p => p.estado === 'bajo').length;
+      document.getElementById('total-promover').textContent = d.promover.length;
+
+      const aEl = document.getElementById('alertas-section');
+      aEl.innerHTML = d.alertas.length
+        ? d.alertas.map(a => `<div class="alert-banner ${a.estado === 'agotado' ? 'alert-danger' : 'alert-warning'}" style="margin-bottom:8px">${a.estado === 'agotado' ? '🚫' : '⚠️'} <strong>${a.producto}</strong> — ${a.stock_actual} uds (min: ${a.stock_minimo})</div>`).join('')
+        : '<div class="empty-state" style="padding:20px"><div class="empty-icon">✅</div><div class="empty-sub">Inventario saludable</div></div>';
+
+      const sEl = document.getElementById('sugerencias-section');
+      sEl.innerHTML = d.sugerencias.length
+        ? d.sugerencias.map(s => `<div class="alert-banner alert-info" style="margin-bottom:8px">🛒 <strong>${s.producto}</strong> — Comprar ${s.cantidad_sugerida} uds · Inversión: ${fmt(s.inversion_estimada)}</div>`).join('')
+        : '<div class="empty-state" style="padding:20px"><div class="empty-icon">💡</div><div class="empty-sub">Sin sugerencias de compra</div></div>';
+
+      renderProds(allProds);
+    }
+
+    function renderProds(data) {
+      const tbody = document.getElementById('tabla-prods');
+      if (!data.length) { tbody.innerHTML = ''; return; }
+      tbody.innerHTML = data.map(p => {
+        const estadoBadge = { agotado: '<span class="badge badge-red">🚫 Agotado</span>', bajo: '<span class="badge badge-orange">⚠️ Bajo</span>', medio: '<span class="badge" style="color:var(--orange);background:var(--orange-bg)">🔸 Medio</span>', ok: '<span class="badge badge-green">✅ OK</span>' }[p.estado] || '';
+        return `<tr>
+      <td><strong>${p.nombre}</strong></td>
+      <td><span class="badge badge-dim">${p.categoria}</span></td>
+      <td>${fmt(p.precio_venta)}</td>
+      <td>${fmt(p.costo)}</td>
+      <td style="color:${p.margen > 30 ? 'var(--green)' : p.margen > 15 ? 'var(--text)' : 'var(--red)'}">${p.margen}%</td>
+      <td><strong>${p.stock_actual}</strong> / ${p.stock_minimo}</td>
+      <td>${estadoBadge}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="editProd(${p.id})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteProd(${p.id})">🗑</button>
+      </td>
+    </tr>`;
+      }).join('');
+    }
+
+    function filterProds(q) {
+      renderProds(allProds.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase()) || p.categoria.toLowerCase().includes(q.toLowerCase())));
+    }
+
+    function openModalAdd() {
+      document.getElementById('modal-prod-title').textContent = 'Nuevo Producto';
+      ['prod-id', 'prod-nombre', 'prod-categoria', 'prod-precio', 'prod-costo', 'prod-stock', 'prod-stock-min'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('modal-prod').classList.add('open');
+    }
+
+    function editProd(id) {
+      const p = allProds.find(x => x.id === id); if (!p) return;
+      document.getElementById('modal-prod-title').textContent = 'Editar Producto';
+      document.getElementById('prod-id').value = p.id;
+      document.getElementById('prod-nombre').value = p.nombre;
+      document.getElementById('prod-categoria').value = p.categoria;
+      document.getElementById('prod-precio').value = p.precio_venta;
+      document.getElementById('prod-costo').value = p.costo;
+      document.getElementById('prod-stock').value = p.stock_actual;
+      document.getElementById('prod-stock-min').value = p.stock_minimo;
+      document.getElementById('modal-prod').classList.add('open');
+    }
+
+    async function saveProd() {
+      const id = document.getElementById('prod-id').value;
+      const body = {
+        nombre: document.getElementById('prod-nombre').value,
+        categoria: document.getElementById('prod-categoria').value || 'General',
+        precio_venta: parseFloat(document.getElementById('prod-precio').value) || 0,
+        costo: parseFloat(document.getElementById('prod-costo').value) || 0,
+        stock_actual: parseInt(document.getElementById('prod-stock').value) || 0,
+        stock_minimo: parseInt(document.getElementById('prod-stock-min').value) || 10,
+      };
+      if (!body.nombre || !body.precio_venta) { toast('Nombre y precio son requeridos', 'error'); return; }
+      const url = id ? `/api/productos/${id}` : '/api/productos';
+      const method = id ? 'PUT' : 'POST';
+      const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (d.success) { closeModal('modal-prod'); toast(id ? 'Producto actualizado' : 'Producto guardado', 'success'); loadInventario(); }
+      else toast('Error: ' + d.error, 'error');
+    }
+
+    async function deleteProd(id) {
+      if (!confirm('¿Eliminar este producto?')) return;
+      const r = await fetch(`/api/productos/${id}`, { method: 'DELETE' });
+      const d = await r.json();
+      if (d.success) { toast('Producto eliminado', 'info'); loadInventario(); }
+    }
+
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+    // Carga masiva de inventario
+    function openUploadModal() {
+      document.getElementById('modal-upload').classList.add('open');
+    }
+
+    async function uploadInventarioFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const prog = document.getElementById('upload-progress-inv');
+      const bar = document.getElementById('prog-bar-inv');
+      const status = document.getElementById('upload-status-inv');
+      prog.style.display = 'block'; bar.style.width = '30%'; status.textContent = 'Subiendo archivo...';
+
+      const fd = new FormData(); fd.append('file', file);
+      try {
+        bar.style.width = '70%'; status.textContent = 'Procesando inventario...';
+        const r = await fetch('/api/upload-inventario', { method: 'POST', body: fd });
+        const d = await r.json();
+        bar.style.width = '100%';
+        if (d.success) {
+          status.textContent = `✅ ${d.nuevos} nuevos, ${d.actualizados} actualizados`;
+          toast(d.mensaje, 'success');
+          setTimeout(() => { prog.style.display = 'none'; closeModal('modal-upload'); loadInventario(); }, 1500);
+        } else {
+          status.textContent = `❌ ${d.error}`;
+          toast('Error: ' + d.error, 'error');
+        }
+      } catch (e) {
+        status.textContent = '❌ Error de conexión';
+        toast('Error de conexión', 'error');
+      }
+    }
+
+    // Análisis inteligente
+    async function runAnalisis() {
+      const btn = document.getElementById('btn-analisis');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Analizando...';
+      const r = await fetch('/api/analisis-inteligente');
+      const d = await r.json();
+      btn.disabled = false; btn.innerHTML = '🧠 Analizar Inventario';
+
+      const panel = document.getElementById('analisis-panel');
+      panel.style.display = 'block';
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      document.getElementById('ai-criticos').textContent = d.resumen.criticos;
+      document.getElementById('ai-oportunidades').textContent = d.resumen.oportunidades;
+      document.getElementById('ai-saludables').textContent = d.mantener.length;
+      document.getElementById('ai-summary-txt').textContent = `${d.resumen.total_productos} productos analizados — ${d.resumen.productos_con_ventas} con ventas`;
+      document.getElementById('ai-summary-sub').textContent = d.resumen.ventas_60_dias > 0 ? `Ventas 60 días: ${fmt(d.resumen.ventas_60_dias)}` : 'Sin historial de ventas';
+
+      document.getElementById('badge-sacar').textContent = d.sacar.length;
+      document.getElementById('badge-promover').textContent = d.promover.length;
+      document.getElementById('badge-sin-ventas').textContent = d.sin_ventas.length;
+
+      const sacarEl = document.getElementById('lista-sacar');
+      sacarEl.innerHTML = d.sacar.length ? d.sacar.map(p => `<div style="background:rgba(255,69,58,0.06);border-radius:10px;padding:12px;margin-bottom:8px"><strong>${p.nombre}</strong><div style="font-size:11px;color:var(--text-muted)">${p.razon}</div><div>💲 ${fmt(p.precio_liquidacion)} sugerido</div></div>`).join('') : '<div class="empty-state"><div class="empty-icon">✅</div></div>';
+
+      const promoEl = document.getElementById('lista-promover');
+      promoEl.innerHTML = d.promover.length ? d.promover.map(p => `<div style="background:rgba(255,159,10,0.06);border-radius:10px;padding:12px;margin-bottom:8px"><strong>${p.nombre}</strong><div style="font-size:11px;color:var(--text-muted)">${p.razon}</div><div>🔥 ${fmt(p.precio_promo)} (${p.descuento_pct}% desc)</div></div>`).join('') : '<div class="empty-state"><div class="empty-icon">💡</div></div>';
+
+      const svEl = document.getElementById('lista-sin-ventas');
+      svEl.innerHTML = d.sin_ventas.length ? d.sin_ventas.map(p => `<div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:8px"><strong>${p.nombre}</strong><div style="font-size:11px;color:var(--text-muted)">Sin ventas en 60 días</div></div>`).join('') : '<div class="empty-state"><div class="empty-icon">🎉</div></div>';
+
+      toast(`Análisis completado: ${d.resumen.criticos} críticos`, d.resumen.criticos > 0 ? 'warning' : 'success');
+    }
+
+    // Live margin calc
+    ['prod-precio', 'prod-costo'].forEach(id => document.getElementById(id)?.addEventListener('input', () => {
+      const p = parseFloat(document.getElementById('prod-precio').value) || 0;
+      const c = parseFloat(document.getElementById('prod-costo').value) || 0;
+      const m = p > 0 ? ((p - c) / p * 100).toFixed(1) : 0;
+      document.getElementById('calc-margen').textContent = p > 0 ? `💡 Margen calculado: ${m}%` : '';
+    }));
+
+    loadInventario();
+
+    function mostrarFormatoInventario() {
+      document.getElementById('modal-format-inventario').classList.add('open');
+    }
+
+    function descargarPlantillaInventario() {
+      // Crear Excel simple
+      const data = [
+        ['nombre', 'categoria', 'precio_venta', 'costo', 'stock_actual', 'stock_minimo', 'ubicacion'],
+        ['Camiseta Básica', 'Ropa', 45000, 20000, 150, 10, 'Estante A1'],
+        ['Jeans Premium', 'Ropa', 120000, 60000, 80, 15, 'Estante B2'],
+        ['Zapatillas Sport', 'Calzado', 180000, 90000, 60, 10, 'Estante C3']
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+      XLSX.writeFile(wb, 'plantilla_inventario.xlsx');
+    }
+    // Funciones para el modal de formato
+    function mostrarFormatoInventario() {
+      document.getElementById('modal-format-inventario').classList.add('open');
+    }
+
+    function descargarPlantillaInventario() {
+      // Crear CSV simple como Excel (XLSX requiere librería, usamos CSV)
+      const data = [
+        ['nombre', 'categoria', 'precio_venta', 'costo', 'stock_actual', 'stock_minimo', 'ubicacion'],
+        ['Camiseta Basica', 'Ropa', 45000, 20000, 150, 10, 'Estante A1'],
+        ['Jeans Premium', 'Ropa', 120000, 60000, 80, 15, 'Estante B2'],
+        ['Zapatillas Sport', 'Calzado', 180000, 90000, 60, 10, 'Estante C3']
+      ];
+
+      // Convertir a CSV
+      const csv = data.map(row => row.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'plantilla_inventario.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('Plantilla descargada', 'success');
+    }
+  </script>
+  {% endblock %}
+</body>
+
+</html>

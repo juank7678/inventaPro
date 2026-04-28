@@ -1,0 +1,13 @@
+flask
+flask-login
+flask-sqlalchemy
+werkzeug
+pandas
+openpyxl
+reportlab
+gunicorn
+python-dateutil
+statsmodels
+scipy
+requests
+apscheduler

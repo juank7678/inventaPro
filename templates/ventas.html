@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block title %}Ventas{% endblock %}
+{% block page_title %}Análisis de Ventas{% endblock %}
+
+{% block topbar_actions %}
+<div class="tabs" style="margin:0;flex:0 0 auto">
+  <button class="tab active" onclick="setPeriodo('dia',this)">Hoy</button>
+  <button class="tab" onclick="setPeriodo('semana',this)">Semana</button>
+  <button class="tab" onclick="setPeriodo('mes',this)">Mes</button>
+  <button class="tab" onclick="setPeriodo('todo',this)">Todo</button>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Upload -->
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header">
+    <span class="card-title">📤 Subir Archivo de Ventas (Excel)</span>
+    <a href="#" onclick="showFormatHelp()" class="btn btn-ghost btn-sm">Ver formato</a>
+  </div>
+  <div class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
+    <div class="upload-icon">📊</div>
+    <div class="upload-title">Arrastra tu Excel aquí o haz clic</div>
+    <div class="upload-sub">Columnas requeridas: producto, cantidad, precio_unitario<br>Opcionales: fecha, categoria,
+      costo_unitario</div>
+  </div>
+  <div id="upload-progress" style="display:none;margin-top:16px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px">
+      <span id="upload-status">Procesando...</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="prog-bar" style="width:0%"></div>
+    </div>
+  </div>
+  <div id="upload-result" style="margin-top:12px"></div>
+</div>
+
+<!-- Estrella / Peor -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px">
+  <div class="card kpi-card anim-1" id="card-estrella">
+    <div class="kpi-icon">⭐</div>
+    <div class="kpi-label">Producto Estrella</div>
+    <div class="kpi-value blue" id="estrella-nombre" style="font-size:18px">—</div>
+    <div class="kpi-delta" id="estrella-ing">Carga ventas para ver</div>
+  </div>
+  <div class="card kpi-card anim-2" id="card-peor">
+    <div class="kpi-icon">📉</div>
+    <div class="kpi-label">A Mejorar / Promover</div>
+    <div class="kpi-value red" id="peor-nombre" style="font-size:18px">—</div>
+    <div class="kpi-delta" id="peor-ing"></div>
+  </div>
+  <div class="card kpi-card anim-3">
+    <div class="kpi-icon">🏷️</div>
+    <div class="kpi-label">Categorías Activas</div>
+    <div class="kpi-value" id="cat-count">—</div>
+    <div class="kpi-delta" id="cat-top"></div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+  <div class="card">
+    <div class="card-header"><span class="card-title">🏆 Top 5 Productos</span></div>
+    <div class="chart-container" style="height:240px"><canvas id="chart-top"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">📂 Por Categoría</span></div>
+    <div class="chart-container" style="height:240px"><canvas id="chart-cat"></canvas></div>
+  </div>
+</div>
+
+<!-- Tabla -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">📋 Detalle de Productos</span>
+    <input class="form-control" style="width:220px;padding:7px 12px;font-size:13px" placeholder="🔍 Buscar producto..."
+      oninput="filterTable(this.value)">
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Categoría</th>
+          <th>Cantidad</th>
+          <th>Ingresos</th>
+          <th>Utilidad</th>
+          <th>Margen</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-ventas"></tbody>
+    </table>
+  </div>
+  <div id="tabla-empty" class="empty-state" style="display:none">
+    <div class="empty-icon">📊</div>
+    <div class="empty-title">Sin datos de ventas</div>
+    <div class="empty-sub">Sube un archivo Excel para comenzar</div>
+  </div>
+</div>
+
+<!-- Format Help Modal -->
+<div class="modal-overlay" id="modal-format">
+  <div class="modal">
+    <div class="modal-title">📋 Formato del Excel de Ventas</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Columnas reconocidas automáticamente:</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Columna</th>
+            <th>¿Requerida?</th>
+            <th>Ejemplo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>fecha</code></td>
+            <td><span class="badge badge-dim">Opcional</span></td>
+            <td>2024-01-15</td>
+          </tr>
+          <tr>
+            <td><code>producto</code></td>
+            <td><span class="badge badge-red">Requerida</span></td>
+            <td>Camiseta Básica</td>
+          </tr>
+          <tr>
+            <td><code>categoria</code></td>
+            <td><span class="badge badge-dim">Opcional</span></td>
+            <td>Ropa</td>
+          </tr>
+          <tr>
+            <td><code>cantidad</code></td>
+            <td><span class="badge badge-red">Requerida</span></td>
+            <td>5</td>
+          </tr>
+          <tr>
+            <td><code>precio_unitario</code></td>
+            <td><span class="badge badge-red">Requerida</span></td>
+            <td>45000</td>
+          </tr>
+          <tr>
+            <td><code>costo_unitario</code></td>
+            <td><span class="badge badge-dim">Opcional</span></td>
+            <td>20000</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="alert-banner alert-info" style="margin-top:14px">💡 Si no incluyes costo, se estimará como el 60% del
+      precio.</div>
+    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('modal-format')">Entendido</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let currentPeriodo = 'mes';
+  let allProductos = [];
+  let chartTop = null, chartCat = null;
+
+  function setPeriodo(p, el) {
+    currentPeriodo = p;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    loadAnalisis();
+  }
+
+  async function loadAnalisis() {
+    const r = await fetch(`/api/ventas/analisis?periodo=${currentPeriodo}`);
+    const d = await r.json();
+    allProductos = d.productos || [];
+
+    // Cards
+    if (d.estrella) {
+      document.getElementById('estrella-nombre').textContent = d.estrella.nombre;
+      document.getElementById('estrella-ing').textContent = `${fmt(d.estrella.ingreso)} · ${d.estrella.cantidad} unid. · ${d.estrella.margen}% margen`;
+    }
+    if (d.peor) {
+      document.getElementById('peor-nombre').textContent = d.peor.nombre;
+      document.getElementById('peor-ing').textContent = `${fmt(d.peor.ingreso)} · Margen: ${d.peor.margen}%`;
+    }
+    document.getElementById('cat-count').textContent = d.categorias.length || '0';
+    document.getElementById('cat-top').textContent = d.categorias[0] ? `Top: ${d.categorias[0].nombre}` : '';
+
+    // Charts
+    buildChartTop(d.top5 || []);
+    buildChartCat(d.categorias || []);
+
+    // Table
+    renderTable(allProductos);
+  }
+
+  function buildChartTop(data) {
+    const ctx = document.getElementById('chart-top').getContext('2d');
+    if (chartTop) chartTop.destroy();
+    chartTop = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: data.map(p => p.nombre.length > 14 ? p.nombre.slice(0, 14) + '…' : p.nombre), datasets: [{ label: 'Ingresos', data: data.map(p => p.ingreso), backgroundColor: 'rgba(0,113,227,0.7)', borderRadius: 6, borderSkipped: false }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1c1c1e', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, callbacks: { label: c => ' ' + fmt(c.raw) } } }, scales: { x: { ticks: { color: '#424245', callback: v => fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' } }, y: { ticks: { color: '#86868b' } } } }
+    });
+  }
+
+  function buildChartCat(data) {
+    const ctx = document.getElementById('chart-cat').getContext('2d');
+    if (chartCat) chartCat.destroy();
+    const colors = ['#0071e3', '#30d158', '#ff9f0a', '#ff453a', '#5856d6', '#64d2ff'];
+    chartCat = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels: data.map(c => c.nombre), datasets: [{ data: data.map(c => c.ingreso), backgroundColor: colors.slice(0, data.length), borderWidth: 0, hoverOffset: 8 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#86868b', font: { family: 'Inter', size: 12 }, padding: 12 } }, tooltip: { backgroundColor: '#1c1c1e', callbacks: { label: c => ` ${c.label}: ${fmt(c.raw)}` } } }, cutout: '65%' }
+    });
+  }
+
+  function renderTable(data) {
+    const tbody = document.getElementById('tabla-ventas');
+    const empty = document.getElementById('tabla-empty');
+    if (!data.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    tbody.innerHTML = data.map(p => {
+      const margenClass = p.margen > 30 ? 'green' : p.margen > 15 ? '' : 'red';
+      const estado = p.ingreso === data[0].ingreso ? '<span class="badge badge-blue">⭐ Estrella</span>' : p.ingreso === data[data.length - 1].ingreso ? '<span class="badge badge-orange">📉 Bajo</span>' : '<span class="badge badge-dim">Normal</span>';
+      return `<tr><td><strong>${p.nombre}</strong></td><td><span class="badge badge-dim">${p.categoria}</span></td><td>${p.cantidad}</td><td>${fmt(p.ingreso)}</td><td>${fmt(p.utilidad)}</td><td><span style="color:var(--${margenClass || 'text'})">${p.margen}%</span></td><td>${estado}</td></tr>`;
+    }).join('');
+  }
+
+  function filterTable(q) {
+    const f = allProductos.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase()) || p.categoria.toLowerCase().includes(q.toLowerCase()));
+    renderTable(f);
+  }
+
+  // Upload
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) uploadFile(file);
+  }
+
+  const zone = document.getElementById('upload-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f) uploadFile(f); });
+
+  async function uploadFile(file) {
+    const prog = document.getElementById('upload-progress');
+    const bar = document.getElementById('prog-bar');
+    const status = document.getElementById('upload-status');
+    const result = document.getElementById('upload-result');
+    prog.style.display = 'block'; bar.style.width = '30%'; status.textContent = 'Leyendo archivo...';
+    const fd = new FormData(); fd.append('file', file);
+    try {
+      bar.style.width = '60%'; status.textContent = 'Procesando ventas...';
+      const r = await fetch('/api/upload-ventas', { method: 'POST', body: fd });
+      const d = await r.json();
+      bar.style.width = '100%';
+      if (d.success) {
+        status.textContent = '¡Completado!';
+        result.innerHTML = `<div class="alert-banner alert-success">✅ ${d.insertadas} ventas importadas correctamente</div>`;
+        toast(`${d.insertadas} ventas importadas exitosamente`, 'success');
+        setTimeout(() => { prog.style.display = 'none'; loadAnalisis(); }, 1500);
+      } else {
+        result.innerHTML = `<div class="alert-banner alert-danger">❌ ${d.error}</div>`;
+        toast('Error al procesar el archivo', 'error'); bar.style.width = '0%';
+      }
+    } catch (e) { result.innerHTML = `<div class="alert-banner alert-danger">❌ Error de conexión</div>`; }
+  }
+
+  function descargarPlantillaVentas() {
+    const data = [
+      ['fecha', 'producto', 'categoria', 'cantidad', 'precio_unitario', 'costo_unitario'],
+      ['2024-01-15', 'Camiseta Básica', 'Ropa', 3, 45000, 20000],
+      ['2024-01-15', 'Jeans Premium', 'Ropa', 2, 120000, 60000],
+      ['2024-01-16', 'Zapatillas Sport', 'Calzado', 1, 180000, 90000]
+    ];
+
+    const csv = data.map(row => row.join(',')).join('\n');
+    const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'plantilla_ventas.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Plantilla descargada', 'success');
+  }
+
+  function showFormatHelp() { document.getElementById('modal-format').classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  loadAnalisis();
+</script>
+{% endblock %}

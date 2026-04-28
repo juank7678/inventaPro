@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Pronóstico de Ventas{% endblock %}
+{% block page_title %}📈 Pronóstico Inteligente{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-primary btn-sm" onclick="generarForecast()">🔄 Recalcular</button>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:24px;border-color:rgba(59,158,255,0.3)">
+    <div style="display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center">
+        <div>
+            <div
+                style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:8px">
+                🤖 Machine Learning</div>
+            <div style="font-size:20px;font-weight:700">Modelo Holt-Winters</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:4px">Pronóstico basado en tendencia y
+                estacionalidad semanal</div>
+        </div>
+        <div style="font-size:48px">🔮</div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 300px;gap:24px;margin-bottom:24px">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Proyección de Ingresos — Próximos 30 días</span>
+            <span class="badge badge-blue" id="confianza-badge">Calculando...</span>
+        </div>
+        <div class="chart-container" style="height:320px"><canvas id="forecast-chart"></canvas></div>
+    </div>
+
+    <div>
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><span class="card-title">📊 Métricas del Modelo</span></div>
+            <div id="metricas-forecast">
+                <div class="empty-state" style="padding:20px">
+                    <div class="empty-icon">⏳</div>
+                    <div class="empty-sub">Generando pronóstico...</div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><span class="card-title">📅 Resumen mensual</span></div>
+            <div id="resumen-forecast"></div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">⚠️ ¿Qué significa el Error Promedio (MAE)?</span>
+    </div>
+    <div style="font-size:13px;color:var(--text-muted);line-height:1.6" id="explicacion-mae">
+        El MAE mide cuánto se equivoca el modelo en promedio por día.
+    </div>
+</div>
+
+<script>
+    let forecastChart = null;
+
+    async function generarForecast() {
+        const r = await fetch('/api/forecast?dias=30');
+        const d = await r.json();
+
+        if (!d.success) {
+            document.getElementById('metricas-forecast').innerHTML = `
+      <div class="alert-banner alert-warning">
+        ⚠️ ${d.error || 'No se pudo generar el pronóstico'}<br>
+        <small>Carga al menos 14 días de ventas para habilitar esta función</small>
+      </div>`;
+            return;
+        }
+
+        const promedioVentas = d.forecast.reduce((a, b) => a + b, 0) / d.forecast.length;
+        const errorPorcentaje = (d.mae / promedioVentas * 100).toFixed(1);
+
+        let interpretacion = '';
+        let colorError = '';
+
+        if (errorPorcentaje < 15) {
+            interpretacion = '✅ Excelente: El modelo es muy preciso. El error es menor al 15% del promedio de ventas.';
+            colorError = 'var(--green)';
+        } else if (errorPorcentaje < 30) {
+            interpretacion = '⚠️ Aceptable: El modelo tiene precisión moderada. Úsalo como guía, no como regla exacta.';
+            colorError = 'var(--orange)';
+        } else {
+            interpretacion = '🔴 Baja precisión: Tus ventas son muy volátiles. El pronóstico es orientativo.';
+            colorError = 'var(--red)';
+        }
+
+        document.getElementById('explicacion-mae').innerHTML = `
+    <div class="alert-banner alert-info" style="margin-bottom:10px">
+      📊 <strong>Error promedio (MAE): ${fmt(d.mae)}</strong> — equivale al <strong style="color:${colorError}">${errorPorcentaje}%</strong> del promedio diario (${fmt(promedioVentas)})
+    </div>
+    <div>${interpretacion}</div>
+  `;
+
+        const badge = document.getElementById('confianza-badge');
+        badge.textContent = `🔮 Confianza: ${d.confianza} (${errorPorcentaje}% error)`;
+        badge.className = `badge ${d.confianza === 'Alta' ? 'badge-green' : d.confianza === 'Media' ? 'badge-orange' : 'badge-red'}`;
+
+        document.getElementById('metricas-forecast').innerHTML = `
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:var(--text-muted)">Error promedio (MAE)</div>
+      <div style="font-size:20px;font-weight:700;color:${colorError}">${fmt(d.mae)}</div>
+      <div style="font-size:11px;color:var(--text-muted)">${errorPorcentaje}% del promedio diario</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--text-muted)">Días analizados</div>
+      <div style="font-size:20px;font-weight:700">${d.dias_analizados}</div>
+      <div style="font-size:11px;color:var(--text-muted)">para entrenar el modelo</div>
+    </div>
+  `;
+
+        const totalForecast = d.forecast.reduce((a, b) => a + b, 0);
+        const promedio = totalForecast / d.forecast.length;
+        const maximo = Math.max(...d.forecast);
+
+        document.getElementById('resumen-forecast').innerHTML = `
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:var(--text-muted)">Total proyectado 30 días</div>
+      <div style="font-size:22px;font-weight:800;color:var(--accent)">${fmt(totalForecast)}</div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:var(--text-muted)">Promedio diario</div>
+      <div style="font-size:16px;font-weight:600">${fmt(promedio)}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--text-muted)">Día pico estimado</div>
+      <div style="font-size:16px;font-weight:600">${fmt(maximo)}</div>
+    </div>
+  `;
+
+        const ctx = document.getElementById('forecast-chart').getContext('2d');
+        if (forecastChart) forecastChart.destroy();
+
+        forecastChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: d.fechas,
+                datasets: [{
+                    label: 'Pronóstico de ingresos',
+                    data: d.forecast,
+                    borderColor: '#3b9eff',
+                    backgroundColor: 'rgba(59,158,255,0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { tooltip: { callbacks: { label: (ctx) => ` 📈 ${fmt(ctx.raw)}` } } },
+                scales: { y: { ticks: { callback: (v) => fmt(v) } } }
+            }
+        });
+    }
+
+    generarForecast();
+</script>
+{% endblock %}
