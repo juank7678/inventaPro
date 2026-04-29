@@ -1317,3 +1317,170 @@ tbody td {
   overflow-x: auto;
   max-width: 100%;
 }
+
+/* ─── MEJORAS RESPONSIVE ADICIONALES ─────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  /* Tarjetas KPI */
+  .kpi-value {
+    font-size: 20px;
+  }
+
+  /* Modales en móvil */
+  .modal {
+    padding: 20px;
+    width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* Tablas en móvil - scroll horizontal */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 600px;
+  }
+
+  /* Gráficos en móvil */
+  .chart-container {
+    min-height: 200px;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    padding: 25px 15px;
+  }
+
+  .upload-icon {
+    font-size: 28px;
+  }
+
+  .upload-title {
+    font-size: 13px;
+  }
+
+  /* Reportes */
+  .report-card {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+
+  /* Proyecciones */
+  .scenario-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .result-value {
+    font-size: 24px;
+  }
+
+  /* Alertas */
+  .alert-banner {
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Topbar */
+  .topbar {
+    flex-direction: column;
+    height: auto;
+    padding: 12px 16px;
+    gap: 8px;
+  }
+
+  .topbar-title {
+    font-size: 18px;
+    text-align: center;
+  }
+
+  .topbar-sub {
+    text-align: center;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* KPIs en móvil muy pequeño */
+  .kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .kpi-card {
+    padding: 14px;
+  }
+
+  .kpi-value {
+    font-size: 22px;
+  }
+
+  /* Botones */
+  .btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  /* Formularios */
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tabs */
+  .tabs {
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  /* Toast en móvil */
+  #toast-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+  }
+
+  .toast {
+    width: calc(100% - 20px);
+    max-width: none;
+  }
+}
+
+@media (max-width: 380px) {
+  /* Sidebar logo más compacto */
+  .sidebar-logo {
+    padding: 16px 12px;
+  }
+
+  .logo-text {
+    font-size: 14px;
+  }
+
+  .logo-sub {
+    font-size: 9px;
+  }
+
+  /* User pill */
+  .user-pill {
+    padding: 6px 8px;
+  }
+
+  .user-name {
+    font-size: 11px;
+  }
+
+  .user-email {
+    font-size: 9px;
+  }
+}

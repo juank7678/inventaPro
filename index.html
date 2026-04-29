@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Inventa - Business Intelligence para PYMEs</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: #030507;
+            color: #e2e8f0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .logo {
+            font-size: 56px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #3b9eff, #22d3a5);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 16px;
+        }
+
+        .tagline {
+            font-size: 20px;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+
+        /* Grid features */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 60px;
+        }
+
+        .feature-card {
+            background: #0d1117;
+            border: 1px solid rgba(59, 158, 255, 0.15);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(59, 158, 255, 0.4);
+        }
+
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .feature-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #3b9eff;
+        }
+
+        .feature-desc {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        /* Demo section */
+        .demo-section {
+            background: #0d1117;
+            border: 1px solid rgba(59, 158, 255, 0.2);
+            border-radius: 24px;
+            padding: 40px;
+            margin-bottom: 60px;
+            text-align: center;
+        }
+
+        .demo-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .demo-url {
+            background: #1a1a1a;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 16px;
+            margin: 20px 0;
+            word-break: break-all;
+        }
+
+        .credentials {
+            background: #0a0a0a;
+            padding: 16px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        .cred-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        code {
+            background: #1a1a1a;
+            padding: 4px 10px;
+            border-radius: 6px;
+            color: #22d3a5;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.2s;
+            margin: 8px;
+        }
+
+        .btn-primary {
+            background: #3b9eff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #60b4ff;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #22d3a5;
+            color: #030507;
+        }
+
+        .btn-success:hover {
+            background: #2ee5b5;
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            border: 1px solid #3b9eff;
+            color: #3b9eff;
+            background: transparent;
+        }
+
+        .btn-outline:hover {
+            background: rgba(59, 158, 255, 0.1);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding-top: 40px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .footer a {
+            color: #3b9eff;
+            text-decoration: none;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 16px;
+            }
+
+            .logo {
+                font-size: 40px;
+            }
+
+            .tagline {
+                font-size: 16px;
+            }
+
+            .demo-section {
+                padding: 24px;
+            }
+
+            .demo-title {
+                font-size: 20px;
+            }
+
+            .demo-url {
+                font-size: 12px;
+                word-break: break-all;
+            }
+
+            .cred-row {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .btn {
+                padding: 10px 20px;
+                font-size: 14px;
+                display: block;
+                width: 100%;
+                max-width: 280px;
+                margin: 8px auto;
+            }
+
+            .features {
+                gap: 16px;
+            }
+
+            .feature-card {
+                padding: 18px;
+            }
+
+            .feature-icon {
+                font-size: 36px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .logo {
+                font-size: 32px;
+            }
+
+            .demo-section .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">INVENTA</div>
+            <div class="tagline">Business Intelligence para PYMEs</div>
+            <div style="font-size: 14px; color: #22d3a5;">✨ De la intuición a los datos ✨</div>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <div class="feature-title">Dashboard en Tiempo Real</div>
+                <div class="feature-desc">KPIs clave: ventas hoy/semana/mes, utilidad, margen y top productos.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📦</div>
+                <div class="feature-title">Inventario Inteligente</div>
+                <div class="feature-desc">Alertas de stock bajo, sugerencias de compra y análisis de rotación.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔮</div>
+                <div class="feature-title">Pronóstico con IA</div>
+                <div class="feature-desc">Machine Learning Holt-Winters para predecir ventas a 30 días.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📈</div>
+                <div class="feature-title">Proyecciones Financieras</div>
+                <div class="feature-desc">Punto de equilibrio, ROI, flujo de caja y escenarios.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📄</div>
+                <div class="feature-title">Reportes Ejecutivos</div>
+                <div class="feature-desc">Excel y PDF con filtros por hoy, semana, mes o todo el historial.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📱</div>
+                <div class="feature-title">Totalmente Responsive</div>
+                <div class="feature-desc">Funciona en computadora, tablet y celular.</div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <div class="demo-title">🚀 Probar la Aplicación</div>
+            <p>La aplicación completa ya está desplegada y funcionando.</p>
+            <div class="demo-url">
+                🔗 https://inventapro.onrender.com
+            </div>
+
+            <div class="credentials">
+                <strong>🔑 Credenciales de Demo</strong>
+                <div class="cred-row">
+                    <div>📧 <code>admin@inventa.com</code></div>
+                    <div>🔒 <code>inventa2024</code></div>
+                </div>
+                <div style="margin-top: 12px; font-size: 12px; color: #64748b;">
+                    Rol: Administrador (acceso completo)
+                </div>
+            </div>
+
+            <div style="margin-top: 24px;">
+                <a href="https://inventapro.onrender.com" class="btn btn-success">🚀 Ir a la App</a>
+                <a href="https://github.com/juank7678/inventaPro" class="btn btn-outline">📦 Ver Código</a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Inventa - Business Intelligence para PYMEs | Hecho con Flask, SQLite y Chart.js</p>
+            <p style="margin-top: 8px;">
+                <a href="https://github.com/juank7678/inventaPro">GitHub</a> •
+                <a href="#">Documentación</a> •
+                <a href="#">Contacto</a>
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>

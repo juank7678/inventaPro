@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: inventa
+    runtime: python
+    repo: https://github.com/juank7678/inventaPro
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: SECRET_KEY
+        value: inventa-secret-key-2024-v2
+      - key: PYTHON_VERSION
+        value: 3.11.8

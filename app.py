@@ -1211,277 +1211,87 @@ def api_ventas_analisis():
 
 # ─── INIT Y SCHEDULER ────────────────────────────────────────────────────────
 
+# ─── INIT Y SCHEDULER ────────────────────────────────────────────────────────
+
 def init_db():
+    """Inicializa la base de datos y crea usuarios por defecto si no existen"""
     with app.app_context():
         db.create_all()
         if not Usuario.query.first():
-            admin = Usuario(nombre='Admin', email='admin@inventa.com', empresa='Mi Empresa', rol='admin')
+            # Usuario ADMIN
+            admin = Usuario(
+                nombre='Admin', 
+                email='admin@inventa.com', 
+                empresa='Mi Empresa', 
+                rol='admin'
+            )
             admin.set_password('inventa2024')
             db.session.add(admin)
             
-            vendedor = Usuario(nombre='Vendedor Demo', email='vendedor@inventa.com', empresa='Mi Empresa', rol='vendedor')
+            # Usuario VENDEDOR (demo)
+            vendedor = Usuario(
+                nombre='Vendedor Demo', 
+                email='vendedor@inventa.com', 
+                empresa='Mi Empresa', 
+                rol='vendedor'
+            )
             vendedor.set_password('demo123')
             db.session.add(vendedor)
             
+            # Usuario CONSULTOR (demo)
+            consultor = Usuario(
+                nombre='Consultor Demo', 
+                email='consultor@inventa.com', 
+                empresa='Mi Empresa', 
+                rol='consultor'
+            )
+            consultor.set_password('ver123')
+            db.session.add(consultor)
+            
             db.session.commit()
-            print('[OK] Credenciales:')
-            print('   admin@inventa.com / inventa2024 (admin)')
-            print('   vendedor@inventa.com / demo123 (vendedor)')
-
-# Iniciar scheduler
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=lambda: verificar_y_enviar_alertas_stock(), trigger="interval", hours=6, id="alertas_stock")
-scheduler.add_job(func=lambda: actualizar_resumen_diario(date.today()), trigger="interval", hours=24, id="resumen_diario")
-scheduler.start()
-
-# ─── API: DATOS PARA REPORTE CON FILTRO ──────────────────────────────────────
-
-@app.route('/api/reporte-data')
-@login_required
-def api_reporte_data():
-    inicio = request.args.get('inicio')
-    fin = request.args.get('fin')
-    periodo = request.args.get('periodo', 'dia')
-    
-    try:
-        fecha_inicio = datetime.strptime(inicio, '%Y-%m-%d').date() if inicio else date.today()
-        fecha_fin = datetime.strptime(fin, '%Y-%m-%d').date() if fin else date.today()
-    except:
-        fecha_inicio = date.today()
-        fecha_fin = date.today()
-    
-    # Ventas del período
-    ventas_q = db.session.query(
-        func.sum(VentaDetalle.ingreso).label('ventas'),
-        func.sum(VentaDetalle.utilidad).label('utilidad'),
-        func.count(VentaDetalle.id).label('tx')
-    ).filter(VentaDetalle.fecha.between(fecha_inicio, fecha_fin)).first()
-    
-    # Top productos del período
-    top = db.session.query(
-        VentaDetalle.producto_nombre,
-        func.sum(VentaDetalle.ingreso).label('ingreso'),
-        func.sum(VentaDetalle.cantidad).label('cantidad')
-    ).filter(VentaDetalle.fecha.between(fecha_inicio, fecha_fin))\
-     .group_by(VentaDetalle.producto_nombre)\
-     .order_by(func.sum(VentaDetalle.ingreso).desc()).limit(10).all()
-    
-    return jsonify({
-        'ventas_total': round(ventas_q.ventas or 0, 0),
-        'utilidad_total': round(ventas_q.utilidad or 0, 0),
-        'total_transacciones': ventas_q.tx or 0,
-        'top_productos': [{'nombre': p[0], 'ingreso': round(p[1], 0), 'cantidad': int(p[2])} for p in top]
-    })
-
-# ─── API: REPORTE EXCEL CON FILTRO ───────────────────────────────────────────
-
-@app.route('/api/reporte/excel')
-@login_required
-def api_reporte_excel_filtrado():
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from openpyxl.utils import get_column_letter
-    
-    inicio = request.args.get('inicio')
-    fin = request.args.get('fin')
-    periodo = request.args.get('periodo', 'todo')
-    
-    try:
-        fecha_inicio = datetime.strptime(inicio, '%Y-%m-%d').date() if inicio and inicio != 'undefined' else date(2000, 1, 1)
-        fecha_fin = datetime.strptime(fin, '%Y-%m-%d').date() if fin and fin != 'undefined' else date.today()
-    except:
-        fecha_inicio = date(2000, 1, 1)
-        fecha_fin = date.today()
-    
-    wb = Workbook()
-    hdr_font = Font(bold=True, color='FFFFFF', size=11)
-    hdr_fill = PatternFill(start_color='3B9EFF', end_color='3B9EFF', fill_type='solid')
-    hdr_fill2 = PatternFill(start_color='1D1D1F', end_color='1D1D1F', fill_type='solid')
-    
-    def set_headers(ws, headers, fill):
-        for c, h in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=c, value=h)
-            cell.font = hdr_font
-            cell.fill = fill
-            cell.alignment = Alignment(horizontal='center')
-        for c in range(1, len(headers) + 1):
-            ws.column_dimensions[get_column_letter(c)].width = 16
-    
-    # Hoja 1: Ventas del período
-    ws1 = wb.active
-    ws1.title = 'Ventas'
-    set_headers(ws1, ['Fecha', 'Producto', 'Categoria', 'Cantidad', 'Precio', 'Costo', 'Ingreso', 'Utilidad'], hdr_fill)
-    
-    ventas = VentaDetalle.query.filter(
-        VentaDetalle.fecha.between(fecha_inicio, fecha_fin)
-    ).order_by(VentaDetalle.fecha.desc()).all()
-    
-    for i, v in enumerate(ventas, 2):
-        ws1.append([
-            v.fecha.strftime('%Y-%m-%d') if v.fecha else '',
-            v.producto_nombre, v.categoria, v.cantidad,
-            v.precio_unitario, v.costo_unitario, v.ingreso, v.utilidad
-        ])
-    
-    # Hoja 2: Análisis
-    ws2 = wb.create_sheet('Analisis')
-    set_headers(ws2, ['Producto', 'Categoria', 'Cant. Vendida', 'Ingresos', 'Utilidad', 'Margen %'], hdr_fill2)
-    
-    analisis = db.session.query(
-        VentaDetalle.producto_nombre, VentaDetalle.categoria,
-        func.sum(VentaDetalle.cantidad), func.sum(VentaDetalle.ingreso), func.sum(VentaDetalle.utilidad)
-    ).filter(VentaDetalle.fecha.between(fecha_inicio, fecha_fin))\
-     .group_by(VentaDetalle.producto_nombre, VentaDetalle.categoria)\
-     .order_by(func.sum(VentaDetalle.ingreso).desc()).all()
-    
-    for i, r in enumerate(analisis, 2):
-        ing = float(r[3])
-        util = float(r[4])
-        ws2.append([r[0], r[1], int(r[2]), round(ing, 0), round(util, 0), round(util / ing * 100, 1) if ing > 0 else 0])
-    
-    # Hoja 3: Inventario
-    ws3 = wb.create_sheet('Inventario')
-    set_headers(ws3, ['Producto', 'Categoria', 'Stock', 'Stock Min.', 'Precio', 'Costo', 'Estado'], hdr_fill)
-    
-    for p in Producto.query.filter_by(activo=True).all():
-        estado = 'AGOTADO' if p.stock_actual == 0 else 'BAJO' if p.stock_actual <= p.stock_minimo else 'OK'
-        ws3.append([p.nombre, p.categoria, p.stock_actual, p.stock_minimo, p.precio_venta, p.costo, estado])
-    
-    out = io.BytesIO()
-    wb.save(out)
-    out.seek(0)
-    
-    nombre_periodo = {'dia': 'hoy', 'semana': 'semana', 'mes': 'mes', 'todo': 'historial'}.get(periodo, 'reporte')
-    return send_file(out, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                     as_attachment=True, download_name=f'reporte_inventa_{nombre_periodo}_{date.today().strftime("%Y%m%d")}.xlsx')
+            print('[OK] Credenciales creadas:')
+            print('   admin@inventa.com / inventa2024 (Administrador)')
+            print('   vendedor@inventa.com / demo123 (Vendedor)')
+            print('   consultor@inventa.com / ver123 (Consultor)')
 
 
-# ─── API: REPORTE PDF CON FILTRO ─────────────────────────────────────────────
+# ─── CONFIGURACIÓN PARA PRODUCCIÓN VS LOCAL ───────────────────────────────────
 
-@app.route('/api/reporte/pdf')
-@login_required
-def api_reporte_pdf_filtrado():
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib import colors
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-    from reportlab.lib.units import cm
-    from reportlab.lib.enums import TA_CENTER
+# Detectar si estamos en producción (Render, PythonAnywhere, etc.)
+# Render setea la variable de entorno PORT automáticamente
+ENV_PRODUCCION = os.environ.get('PORT') is not None
+
+if ENV_PRODUCCION:
+    print("[INFO] Ejecutando en MODO PRODUCCIÓN")
+    # En producción: solo inicializar BD, NO scheduler
+    with app.app_context():
+        init_db()
+else:
+    print("[INFO] Ejecutando en MODO LOCAL")
+    # En local: inicializar BD y scheduler
+    with app.app_context():
+        init_db()
     
-    inicio = request.args.get('inicio')
-    fin = request.args.get('fin')
-    periodo = request.args.get('periodo', 'todo')
-    
-    try:
-        fecha_inicio = datetime.strptime(inicio, '%Y-%m-%d').date() if inicio and inicio != 'undefined' else date(2000, 1, 1)
-        fecha_fin = datetime.strptime(fin, '%Y-%m-%d').date() if fin and fin != 'undefined' else date.today()
-    except:
-        fecha_inicio = date(2000, 1, 1)
-        fecha_fin = date.today()
-    
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
-    styles = getSampleStyleSheet()
-    BLUE = colors.HexColor('#3B9EFF')
-    DARK = colors.HexColor('#1d1d1f')
-    LIGHT = colors.HexColor('#f5f5f7')
-    
-    t_style = ParagraphStyle('t', parent=styles['Heading1'], fontSize=22, textColor=BLUE, spaceAfter=4, alignment=TA_CENTER)
-    h2 = ParagraphStyle('h2', parent=styles['Heading2'], fontSize=13, textColor=DARK, spaceAfter=6)
-    
-    # Datos filtrados
-    ventas_q = db.session.query(
-        func.sum(VentaDetalle.ingreso).label('ventas'),
-        func.sum(VentaDetalle.utilidad).label('utilidad'),
-        func.count(VentaDetalle.id).label('tx')
-    ).filter(VentaDetalle.fecha.between(fecha_inicio, fecha_fin)).first()
-    
-    vtotal = ventas_q.ventas or 0
-    utotal = ventas_q.utilidad or 0
-    margen = round(utotal / vtotal * 100, 1) if vtotal else 0
-    
-    nombre_periodo = {'dia': 'Hoy', 'semana': 'Esta Semana', 'mes': 'Este Mes', 'todo': 'Todo el Historial'}.get(periodo, 'Reporte')
-    
-    story = [
-        Paragraph('INVENTA — Reporte Empresarial', t_style),
-        Paragraph(f'Período: {nombre_periodo}', styles['Normal']),
-        Paragraph(f'Generado: {datetime.now().strftime("%d/%m/%Y %H:%M")} | {current_user.empresa}', styles['Normal']),
-        Spacer(1, 0.4*cm),
-        Paragraph('Resumen Ejecutivo', h2),
-    ]
-    
-    kpi_t = Table([
-        ['Métrica', 'Valor'],
-        ['Ventas Totales', f'${vtotal:,.0f}'],
-        ['Utilidad Total', f'${utotal:,.0f}'],
-        ['Margen Prom.', f'{margen}%'],
-        ['Transacciones', str(ventas_q.tx or 0)]
-    ], colWidths=[8*cm, 8*cm])
-    
-    kpi_t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), BLUE),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 11),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [LIGHT, colors.white]),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d2d2d7')),
-        ('PADDING', (0, 0), (-1, -1), 8)
-    ]))
-    story += [kpi_t, Spacer(1, 0.4*cm), Paragraph('Top Productos del Período', h2)]
-    
-    tops = db.session.query(
-        VentaDetalle.producto_nombre,
-        func.sum(VentaDetalle.cantidad),
-        func.sum(VentaDetalle.ingreso),
-        func.sum(VentaDetalle.utilidad)
-    ).filter(VentaDetalle.fecha.between(fecha_inicio, fecha_fin))\
-     .group_by(VentaDetalle.producto_nombre)\
-     .order_by(func.sum(VentaDetalle.ingreso).desc()).limit(10).all()
-    
-    if tops:
-        pd_data = [['Producto', 'Cant.', 'Ingresos', 'Utilidad']] + \
-                  [[r[0], str(int(r[1])), f'${float(r[2]):,.0f}', f'${float(r[3]):,.0f}'] for r in tops]
-        pt = Table(pd_data, colWidths=[7*cm, 3*cm, 4*cm, 3.5*cm])
-        pt.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), DARK),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [LIGHT, colors.white]),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d2d2d7')),
-            ('PADDING', (0, 0), (-1, -1), 6)
-        ]))
-        story.append(pt)
-    else:
-        story.append(Paragraph('No hay datos de ventas en este período.', styles['Normal']))
-    
-    story += [Spacer(1, 0.4*cm), Paragraph('Alertas de Inventario', h2)]
-    alertas = Producto.query.filter(Producto.stock_actual <= Producto.stock_minimo, Producto.activo == True).all()
-    
-    if alertas:
-        ad = [['Producto', 'Stock', 'Mínimo', 'Estado']] + \
-             [[p.nombre, str(p.stock_actual), str(p.stock_minimo), 'AGOTADO' if p.stock_actual == 0 else 'BAJO'] for p in alertas]
-        at = Table(ad, colWidths=[7*cm, 3*cm, 3*cm, 3*cm])
-        at.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FF453A')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#fff5f4'), colors.white]),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d2d2d7')),
-            ('PADDING', (0, 0), (-1, -1), 6)
-        ]))
-        story.append(at)
-    else:
-        story.append(Paragraph('✅ No hay alertas de inventario activas.', styles['Normal']))
-    
-    doc.build(story)
-    buf.seek(0)
-    
-    nombre_periodo_file = {'dia': 'hoy', 'semana': 'semana', 'mes': 'mes', 'todo': 'historial'}.get(periodo, 'reporte')
-    return send_file(buf, mimetype='application/pdf', as_attachment=True,
-                     download_name=f'reporte_inventa_{nombre_periodo_file}_{date.today().strftime("%Y%m%d")}.pdf')
+    # Iniciar scheduler SOLO en desarrollo local
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(
+        func=lambda: verificar_y_enviar_alertas_stock(), 
+        trigger="interval", 
+        hours=6, 
+        id="alertas_stock"
+    )
+    scheduler.add_job(
+        func=lambda: actualizar_resumen_diario(date.today()), 
+        trigger="interval", 
+        hours=24, 
+        id="resumen_diario"
+    )
+    scheduler.start()
+    print("[OK] Scheduler de alertas activado (solo local)")
+
+
+# ─── PUNTO DE ENTRADA ────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    init_db()
-    app.run(debug=True, use_reloader=False)
+    # Esto se ejecuta SOLO cuando corres "python app.py" en tu PC
+    app.run(debug=True, host='0.0.0.0', port=5000)
