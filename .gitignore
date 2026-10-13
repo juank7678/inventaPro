@@ -34,3 +34,9 @@ reportes/
 # Variables de entorno
 .env
 .env.local
+# Datos locales y herramientas
+instance/
+.claude/
+
+# Credenciales: nunca al repositorio
+Juan Carlos Guerrero/Credenciales.JPG

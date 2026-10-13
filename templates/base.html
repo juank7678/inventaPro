@@ -3,16 +3,20 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% block title %}Inventa{% endblock %} — Business Intelligence</title>
-  <meta name="description" content="Sistema de gestión empresarial para emprendedores y PYMEs">
-  <link rel="stylesheet" href="/static/styles.css">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#05080c">
+  <title>{% block title %}Inventa{% endblock %} · {{ current_user.empresa or 'Inventa' }}</title>
+  <meta name="description" content="Ventas, ganancias y productos de tu negocio en un solo lugar">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   {% block head %}{% endblock %}
 </head>
 
-<body>
-  <div id="toast-container"></div>
+<body data-puede-editar="{{ 1 if puede_editar else 0 }}" data-es-admin="{{ 1 if es_admin else 0 }}">
+  <div id="toast-container" aria-live="polite"></div>
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar(false)"></div>
 
   <div class="app-layout">
     <!-- SIDEBAR -->
@@ -21,79 +25,57 @@
         <div class="logo-mark">
           <div class="logo-icon">IN</div>
           <div>
-            <div class="logo-text">Inventa</div>
-            <div class="logo-sub">Business Intelligence</div>
+            <div class="logo-text">{{ current_user.empresa or 'Inventa' }}</div>
+            <div class="logo-sub">Inventa · ventas y ganancias</div>
           </div>
         </div>
       </div>
 
       <nav class="sidebar-nav">
-        <div class="nav-section-label">Principal</div>
-        <a href="/dashboard" class="nav-item {% if request.path=='/dashboard' %}active{% endif %}">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <rect x="3" y="3" width="7" height="7" rx="1" />
-            <rect x="14" y="3" width="7" height="7" rx="1" />
-            <rect x="3" y="14" width="7" height="7" rx="1" />
-            <rect x="14" y="14" width="7" height="7" rx="1" />
-          </svg>
-          Dashboard
+        <div class="nav-section-label">Día a día</div>
+        <a href="{{ url_for('dashboard') }}" class="nav-item">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+          Inicio
         </a>
-        <a href="/ventas" class="nav-item {% if request.path=='/ventas' %}active{% endif %}">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-          </svg>
+        <a href="{{ url_for('ventas') }}" class="nav-item">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
           Ventas
         </a>
-        <a href="/forecast" class="nav-item {% if request.path=='/forecast' %}active{% endif %}">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path
-              d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9h-4m-7 9A9 9 0 0 1 3 12m9 9v-4M3 12a9 9 0 0 1 9-9m-9 9h4m7-9a9 9 0 0 1 9 9" />
-          </svg>
+        <a href="{{ url_for('productos') }}" class="nav-item">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /></svg>
+          Productos
+        </a>
+
+        <div class="nav-section-label">Análisis</div>
+        <a href="{{ url_for('reportes') }}" class="nav-item">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+          Reportes
+        </a>
+        <a href="{{ url_for('proyecciones') }}" class="nav-item">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>
+          Proyecciones
+        </a>
+        <a href="{{ url_for('forecast_page') }}" class="nav-item">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8" /><polyline points="14 7 21 7 21 14" /></svg>
           Pronóstico
         </a>
 
-        <div class="nav-section-label">Gestión</div>
-        <a href="/productos" class="nav-item {% if request.path=='/productos' %}active{% endif %}">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path
-              d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-          </svg>
-          Inventario
-        </a>
-        <a href="/proyecciones" class="nav-item {% if request.path=='/proyecciones' %}active{% endif %}">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <line x1="18" y1="20" x2="18" y2="10" />
-            <line x1="12" y1="20" x2="12" y2="4" />
-            <line x1="6" y1="20" x2="6" y2="14" />
-          </svg>
-          Proyecciones
-        </a>
-        <a href="/reportes" class="nav-item {% if request.path=='/reportes' %}active{% endif %}">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-            <polyline points="10 9 9 9 8 9" />
-          </svg>
-          Reportes
+        <div class="nav-section-label">Cuenta</div>
+        <a href="{{ url_for('cuenta') }}" class="nav-item">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Mi cuenta
         </a>
       </nav>
 
       <div class="sidebar-footer">
         <div class="user-pill">
-          <div class="user-avatar">{{ current_user.nombre[0]|upper }}</div>
-          <div>
+          <div class="user-avatar">{{ (current_user.nombre or 'U')[0]|upper }}</div>
+          <div style="min-width:0">
             <div class="user-name">{{ current_user.nombre }}</div>
-            <div class="user-email">{{ current_user.empresa }}</div>
-            <div class="user-email" style="font-size:10px">🔑 {{ current_user.rol }}</div>
+            <div class="user-email">{{ current_user.rol|capitalize }}</div>
           </div>
-          <a href="/logout" class="logout-btn" title="Cerrar sesión">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
+          <a href="{{ url_for('logout') }}" class="logout-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
           </a>
         </div>
       </div>
@@ -102,27 +84,112 @@
     <!-- MAIN -->
     <main class="main-content">
       <div class="topbar">
-        <div>
-          <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+        <button class="menu-btn" onclick="toggleSidebar()" aria-label="Abrir menú">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="topbar-heading">
+          <div class="topbar-title">{% block page_title %}Inicio{% endblock %}</div>
           <div class="topbar-sub" id="current-date"></div>
         </div>
-        <div class="topbar-actions">{% block topbar_actions %}{% endblock %}</div>
+        <div class="topbar-actions">
+          {% block topbar_actions %}{% endblock %}
+          {% if puede_editar %}
+          <button class="btn btn-primary btn-vender" onclick="abrirVenta()">
+            <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            Registrar venta
+          </button>
+          {% endif %}
+        </div>
       </div>
+
       <div class="page-body">
+        {% if aviso_disco_temporal and es_admin %}
+        <div class="alert-banner alert-danger">
+          <span>⚠️</span>
+          <div><strong>Tus datos no están a salvo.</strong> El servidor guarda la información en un disco temporal que se borra cada vez que se reinicia.
+            Configura la variable <code>DATABASE_URL</code> con una base de datos Postgres (ver <code>DIAGNOSTICO.md</code>).</div>
+        </div>
+        {% endif %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+        <div class="alert-banner {{ 'alert-danger' if cat == 'error' else 'alert-info' }}">{{ msg }}</div>
+        {% endfor %}
+        {% endwith %}
         {% block content %}{% endblock %}
       </div>
     </main>
   </div>
 
-  <script src="/static/app.js"></script>
-  <script>
-    // Set current date
-    document.getElementById('current-date').textContent = new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    // Mark active nav
-    document.querySelectorAll('.nav-item').forEach(el => {
-      if (el.getAttribute('href') === location.pathname) el.classList.add('active');
-    });
-  </script>
+  <!-- NAVEGACIÓN INFERIOR (móvil) -->
+  <nav class="bottom-nav" aria-label="Navegación principal">
+    <a href="{{ url_for('dashboard') }}" class="bn-item">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+      <span>Inicio</span>
+    </a>
+    <a href="{{ url_for('ventas') }}" class="bn-item">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+      <span>Ventas</span>
+    </a>
+    {% if puede_editar %}
+    <button class="bn-fab" onclick="abrirVenta()" aria-label="Registrar venta">
+      <svg fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+    </button>
+    {% endif %}
+    <a href="{{ url_for('productos') }}" class="bn-item">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /></svg>
+      <span>Productos</span>
+    </a>
+    <button class="bn-item" onclick="toggleSidebar()">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+      <span>Más</span>
+    </button>
+  </nav>
+
+  {% if puede_editar %}
+  <!-- MODAL: REGISTRAR VENTA -->
+  <div class="modal-overlay" id="modal-venta">
+    <div class="modal modal-venta" role="dialog" aria-labelledby="mv-titulo">
+      <div class="modal-head">
+        <div class="modal-title" id="mv-titulo">Registrar venta</div>
+        <button class="icon-btn" onclick="closeModal('modal-venta')" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="mv-fecha">Fecha</label>
+        <input class="form-control" type="date" id="mv-fecha">
+      </div>
+      <div id="mv-lineas" class="venta-lineas"></div>
+      <button class="btn btn-ghost btn-sm" onclick="agregarLinea()" style="margin-top:4px">+ Agregar otro producto</button>
+      <div class="venta-total">
+        <div>
+          <div class="vt-label">Total de la venta</div>
+          <div class="vt-valor" id="mv-total">$0</div>
+        </div>
+        <div style="text-align:right">
+          <div class="vt-label">Ganancia</div>
+          <div class="vt-ganancia" id="mv-ganancia">$0</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('modal-venta')">Cancelar</button>
+        <button class="btn btn-primary btn-lg" id="mv-guardar" onclick="guardarVenta()">Guardar venta</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- MODAL: CONFIRMACIÓN -->
+  <div class="modal-overlay" id="modal-confirmar">
+    <div class="modal" style="width:min(420px,94vw)" role="alertdialog" aria-labelledby="mc-titulo">
+      <div class="modal-title" id="mc-titulo">¿Confirmas?</div>
+      <div id="mc-texto" style="color:var(--text-muted);font-size:14px"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="mc-cancelar">Cancelar</button>
+        <button class="btn btn-danger" id="mc-aceptar">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 

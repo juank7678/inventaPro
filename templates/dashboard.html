@@ -1,117 +1,112 @@
 {% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
+{% block title %}Inicio{% endblock %}
+{% block page_title %}Hola, {{ (current_user.nombre or 'de nuevo').split(' ')[0] }} 👋{% endblock %}
 
 {% block topbar_actions %}
-<button class="btn btn-ghost btn-sm" onclick="loadDemoData()">⚡ Cargar Demo</button>
-<button class="btn btn-primary btn-sm" onclick="location.reload()">↻ Actualizar</button>
-<button class="btn btn-ghost btn-sm" onclick="mostrarComparativo()">📊 Comparar Meses</button>
+<button class="btn btn-ghost btn-sm ocultar-movil" onclick="mostrarComparativo(this)">Comparar con el mes pasado</button>
 {% endblock %}
 
 {% block content %}
-<!-- KPIs -->
-<div class="kpi-grid" id="kpi-grid">
-  <div class="kpi-card anim-1">
-    <div class="kpi-icon">📅</div>
-    <div class="kpi-label">Ventas Hoy</div>
-    <div class="kpi-value blue" id="kpi-hoy">$0</div>
-    <div class="kpi-delta">acumulado del día</div>
+<!-- Primeros pasos (solo cuando el negocio está vacío) -->
+<div class="card onboarding" id="onboarding" hidden>
+  <div class="card-header"><span class="card-title">Empecemos: 3 pasos para ver tus ganancias</span></div>
+  <div class="pasos">
+    <a class="paso" id="paso-productos" href="{{ url_for('productos') }}">
+      <span class="paso-num">1</span>
+      <div><strong>Agrega tus productos</strong><div class="paso-sub">Nombre, precio de venta y lo que te cuesta</div></div>
+    </a>
+    <a class="paso" id="paso-venta" href="#" onclick="abrirVenta();return false;">
+      <span class="paso-num">2</span>
+      <div><strong>Registra tu primera venta</strong><div class="paso-sub">Toma 10 segundos desde el botón “+”</div></div>
+    </a>
+    <a class="paso" id="paso-meta" href="{{ url_for('cuenta') }}">
+      <span class="paso-num">3</span>
+      <div><strong>Ponte una meta mensual</strong><div class="paso-sub">Y mira tu avance cada día</div></div>
+    </a>
+  </div>
+</div>
+
+<!-- KPIs principales -->
+<div class="kpi-grid kpi-grid-4">
+  <div class="kpi-card kpi-destacada anim-1">
+    <div class="kpi-label">Vendido hoy</div>
+    <div class="kpi-value" id="kpi-hoy">—</div>
+    <div class="kpi-delta" id="kpi-hoy-delta">&nbsp;</div>
   </div>
   <div class="kpi-card anim-2">
-    <div class="kpi-icon">📊</div>
-    <div class="kpi-label">Ventas Esta Semana</div>
-    <div class="kpi-value" id="kpi-semana">$0</div>
-    <div class="kpi-delta" id="kpi-semana-delta"></div>
+    <div class="kpi-label" id="kpi-mes-label">Vendido este mes</div>
+    <div class="kpi-value" id="kpi-mes">—</div>
+    <div class="kpi-delta" id="kpi-mes-delta">&nbsp;</div>
   </div>
   <div class="kpi-card anim-3">
-    <div class="kpi-icon">🗓️</div>
-    <div class="kpi-label">Ventas Este Mes</div>
-    <div class="kpi-value" id="kpi-mes">$0</div>
-    <div class="kpi-delta" id="kpi-mes-delta"></div>
+    <div class="kpi-label">Ganancia del mes</div>
+    <div class="kpi-value green" id="kpi-ganancia">—</div>
+    <div class="kpi-delta" id="kpi-ganancia-delta">&nbsp;</div>
   </div>
-  <div class="kpi-card anim-4">
-    <div class="kpi-icon">💰</div>
-    <div class="kpi-label">Utilidad Total</div>
-    <div class="kpi-value green" id="kpi-utilidad">$0</div>
-    <div class="kpi-delta" id="kpi-margen"></div>
-  </div>
-  <div class="kpi-card anim-5">
-    <div class="kpi-icon">📦</div>
-    <div class="kpi-label">Alertas Inventario</div>
-    <div class="kpi-value red" id="kpi-alertas">0</div>
-    <div class="kpi-delta"><a href="/productos" style="color:var(--text-muted)">Ver inventario →</a></div>
-  </div>
-  <div class="kpi-card anim-6">
-    <div class="kpi-icon">🔁</div>
-    <div class="kpi-label">Transacciones</div>
-    <div class="kpi-value" id="kpi-tx">0</div>
-    <div class="kpi-delta">total registradas</div>
-  </div>
-  <div class="kpi-card anim-7" id="card-crecimiento" style="background:rgba(48,209,88,0.06)">
-    <div class="kpi-icon">📈</div>
-    <div class="kpi-label">Vs mes anterior</div>
-    <div class="kpi-value" id="kpi-crecimiento">+0%</div>
-    <div class="kpi-delta" id="kpi-crecimiento-delta">en ventas</div>
+  <div class="kpi-card anim-4" id="card-meta">
+    <div class="kpi-label">Meta del mes</div>
+    <div class="kpi-value" id="kpi-meta">—</div>
+    <div class="progress-bar" style="margin-top:10px"><div class="progress-fill" id="meta-bar" style="width:0%"></div></div>
+    <div class="kpi-delta" id="kpi-meta-delta">&nbsp;</div>
   </div>
 </div>
 
-<!-- Charts Row -->
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:24px">
+<div class="stat-strip anim-5">
+  <div class="stat"><span class="stat-label">Esta semana</span><span class="stat-value" id="st-semana">—</span></div>
+  <div class="stat"><span class="stat-label">Ventas del mes</span><span class="stat-value" id="st-tx">—</span></div>
+  <div class="stat"><span class="stat-label">Ticket promedio</span><span class="stat-value" id="st-ticket">—</span></div>
+  <div class="stat" title="Ganancia del mes menos los gastos registrados, prorrateados a los días transcurridos">
+    <span class="stat-label">Ganancia tras gastos</span><span class="stat-value" id="st-neta">—</span></div>
+  <a class="stat" href="{{ url_for('productos') }}" id="st-alertas-wrap" hidden>
+    <span class="stat-label">Por reponer</span><span class="stat-value red" id="st-alertas">0</span></a>
+</div>
+
+<div class="grid-2-1">
   <div class="card">
     <div class="card-header">
-      <span class="card-title">Evolución de Ventas — Últimos 30 días</span>
-      <span class="badge badge-blue">En vivo</span>
+      <span class="card-title">Ventas y ganancia · últimos 30 días</span>
     </div>
-    <div class="chart-container" style="height:260px">
-      <canvas id="chart-ventas"></canvas>
-    </div>
+    <div class="chart-container" style="height:270px"><canvas id="chart-ventas"></canvas></div>
   </div>
 
   <div class="card">
     <div class="card-header">
-      <span class="card-title">Top Productos</span>
+      <span class="card-title">Lo más vendido del mes</span>
+      <a href="{{ url_for('ventas') }}" class="link-sm">Ver todo →</a>
     </div>
-    <div id="top-lista" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div id="top-lista" class="top-lista">
+      <div class="empty-state compact"><div class="empty-sub">Aún no hay ventas este mes</div></div>
+    </div>
   </div>
 </div>
 
-<!-- Bottom Row -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+<div class="grid-2">
   <div class="card">
-    <div class="card-header">
-      <span class="card-title">🌟 Análisis Rápido</span>
-      <a href="/ventas" class="btn btn-ghost btn-sm">Ver todo →</a>
-    </div>
+    <div class="card-header"><span class="card-title">Lectura rápida del mes</span></div>
     <div id="quick-analysis">
-      <div class="empty-state" style="padding:20px">
-        <div class="empty-icon">📊</div>
-        <div class="empty-sub">Sube ventas para ver análisis</div>
-      </div>
+      <div class="empty-state compact"><div class="empty-sub">Registra ventas para ver el análisis</div></div>
     </div>
   </div>
 
   <div class="card">
     <div class="card-header">
-      <span class="card-title">⚠️ Alertas de Inventario</span>
-      <a href="/productos" class="btn btn-ghost btn-sm">Gestionar →</a>
+      <span class="card-title">Últimas ventas</span>
+      <a href="{{ url_for('ventas') }}" class="link-sm">Historial →</a>
     </div>
-    <div id="alertas-lista">
-      <div class="empty-state" style="padding:20px">
-        <div class="empty-icon">✅</div>
-        <div class="empty-sub">Sin alertas activas</div>
-      </div>
+    <div id="ultimas-ventas" class="lista-ventas">
+      <div class="empty-state compact"><div class="empty-sub">Sin ventas registradas</div></div>
     </div>
   </div>
 </div>
 
 <!-- Modal Comparativo -->
 <div class="modal-overlay" id="modal-comparativo">
-  <div class="modal" style="width:min(700px,95vw)">
-    <div class="modal-title">📊 Comparación Mensual</div>
-    <div id="comparativo-content"></div>
-    <div class="modal-footer">
-      <button class="btn btn-primary" onclick="closeModal('modal-comparativo')">Cerrar</button>
+  <div class="modal" style="width:min(720px,95vw)">
+    <div class="modal-head">
+      <div class="modal-title">Este mes vs. el mes pasado</div>
+      <button class="icon-btn" onclick="closeModal('modal-comparativo')" aria-label="Cerrar">✕</button>
     </div>
+    <div id="comparativo-content"></div>
   </div>
 </div>
 {% endblock %}
@@ -121,24 +116,57 @@
   let ventasChart = null;
 
   async function loadDashboard() {
-    const res = await fetch('/api/dashboard');
-    const d = await res.json();
+    let d;
+    try { d = await api('/api/dashboard'); }
+    catch (e) { toast(e.message, 'error'); return; }
 
-    document.getElementById('kpi-hoy').textContent = fmt(d.ventas_hoy);
-    document.getElementById('kpi-semana').textContent = fmt(d.ventas_semana);
-    document.getElementById('kpi-mes').textContent = fmt(d.ventas_mes);
-    document.getElementById('kpi-utilidad').textContent = fmt(d.utilidad_total);
-    document.getElementById('kpi-margen').textContent = `Margen: ${d.margen}%`;
-    document.getElementById('kpi-alertas').textContent = d.alertas_inventario;
-    document.getElementById('kpi-tx').textContent = d.total_transacciones;
+    // Primeros pasos
+    const ob = d.onboarding;
+    document.getElementById('onboarding').hidden = ob.ventas > 0 && ob.productos > 0;
+    document.getElementById('paso-productos').classList.toggle('hecho', ob.productos > 0);
+    document.getElementById('paso-venta').classList.toggle('hecho', ob.ventas > 0);
+    document.getElementById('paso-meta').classList.toggle('hecho', ob.meta);
 
-    const crecimiento = d.crecimiento_mensual || 0;
-    const crecimientoEl = document.getElementById('kpi-crecimiento');
-    crecimientoEl.textContent = `${crecimiento > 0 ? '+' : ''}${crecimiento}%`;
-    crecimientoEl.style.color = crecimiento >= 0 ? 'var(--green)' : 'var(--red)';
-    document.getElementById('kpi-crecimiento-delta').innerHTML = crecimiento >= 0 ? '▲ vs mes anterior' : '▼ vs mes anterior';
+    // Hoy
+    document.getElementById('kpi-hoy').textContent = fmt(d.hoy.ventas);
+    document.getElementById('kpi-hoy-delta').innerHTML = d.hoy.transacciones
+      ? `${d.hoy.transacciones} venta${d.hoy.transacciones === 1 ? '' : 's'} · ayer ${fmt(d.ayer.ventas)}`
+      : `Ayer: ${fmt(d.ayer.ventas)}`;
 
-    if (d.alertas_inventario > 0) document.getElementById('kpi-alertas').className = 'kpi-value red';
+    // Mes
+    document.getElementById('kpi-mes-label').textContent = `Vendido en ${d.nombre_mes.split(' ')[0].toLowerCase()}`;
+    document.getElementById('kpi-mes').textContent = fmt(d.mes.ventas);
+    const c = d.crecimiento_mensual;
+    document.getElementById('kpi-mes-delta').innerHTML = c === null
+      ? 'Sin datos del mes pasado para comparar'
+      : `<span class="${c >= 0 ? 'up' : 'down'}">${c >= 0 ? '▲' : '▼'} ${pct(c)}</span> vs. mismos días del mes pasado`;
+
+    document.getElementById('kpi-ganancia').textContent = fmt(d.mes.utilidad);
+    document.getElementById('kpi-ganancia-delta').textContent = d.mes.ventas ? `Margen ${d.mes.margen}% sobre lo vendido` : 'Precio de venta menos costo';
+
+    // Meta
+    if (d.meta_mensual) {
+      const av = d.avance_meta;
+      document.getElementById('kpi-meta').textContent = `${Math.round(av)}%`;
+      document.getElementById('meta-bar').style.width = Math.min(100, av) + '%';
+      document.getElementById('meta-bar').classList.toggle('green', av >= 100);
+      const falta = d.meta_mensual - d.mes.ventas;
+      document.getElementById('kpi-meta-delta').innerHTML = falta > 0
+        ? `Faltan ${fmt(falta)} · al ritmo actual cerrarías en ${fmt(d.proyeccion_mes)}`
+        : `🎉 ¡Meta de ${fmt(d.meta_mensual)} cumplida!`;
+    } else {
+      document.getElementById('kpi-meta').textContent = 'Sin meta';
+      document.getElementById('kpi-meta-delta').innerHTML = `<a href="/cuenta">Definir una meta →</a>`;
+    }
+
+    document.getElementById('st-semana').textContent = fmt(d.semana.ventas);
+    document.getElementById('st-tx').textContent = d.mes.transacciones;
+    document.getElementById('st-ticket').textContent = fmt(d.mes.ticket_promedio);
+    const neta = document.getElementById('st-neta');
+    neta.textContent = d.gastos_mes ? fmt(d.ganancia_neta_mes_estimada) : 'Sin gastos';
+    neta.className = 'stat-value ' + (d.gastos_mes ? (d.ganancia_neta_mes_estimada >= 0 ? 'green' : 'red') : '');
+    document.getElementById('st-alertas-wrap').hidden = !d.alertas_inventario;
+    document.getElementById('st-alertas').textContent = d.alertas_inventario;
 
     buildChart(d.grafica);
 
@@ -146,169 +174,118 @@
     if (d.top_productos.length) {
       const max = d.top_productos[0].ingreso || 1;
       topEl.innerHTML = d.top_productos.map((p, i) => `
-        <div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px">
-            <span>${i + 1}. ${p.nombre}</span><span style="color:var(--text-muted)">${fmt(p.ingreso)}</span>
-          </div>
+        <div class="top-item">
+          <div class="top-fila"><span><span class="top-pos">${i + 1}</span>${esc(p.nombre)}</span><strong>${fmt(p.ingreso)}</strong></div>
           <div class="progress-bar"><div class="progress-fill" style="width:${p.ingreso / max * 100}%"></div></div>
+          <div class="top-meta">${p.cantidad} unid. · ganancia ${fmt(p.utilidad)}</div>
         </div>`).join('');
     }
 
-    const r2 = await fetch('/api/ventas/analisis?periodo=mes');
-    const a = await r2.json();
-    if (a.estrella) {
-      document.getElementById('quick-analysis').innerHTML = `
-        <div class="alert-banner alert-info">⭐ Estrella: <strong>${a.estrella.nombre}</strong> — ${fmt(a.estrella.ingreso)} este mes</div>
-        <div class="alert-banner alert-warning">📉 A mejorar: <strong>${a.peor?.nombre || '-'}</strong> — ${fmt(a.peor?.ingreso || 0)} este mes</div>
-        <div style="margin-top:12px;font-size:13px;color:var(--text-muted)">${a.productos.length} productos analizados este mes</div>`;
-    }
+    loadAnalisisRapido();
+    loadUltimas();
+  }
 
-    const r3 = await fetch('/api/inventario');
-    const inv = await r3.json();
-    if (inv.alertas.length) {
-      document.getElementById('alertas-lista').innerHTML = inv.alertas.slice(0, 4).map(a => `
-        <div class="alert-banner ${a.estado === 'agotado' ? 'alert-danger' : 'alert-warning'}">
-          ${a.estado === 'agotado' ? '🚫' : '⚠️'} <strong>${a.producto}</strong> — Stock: ${a.stock_actual} / Mín: ${a.stock_minimo}
-        </div>`).join('');
+  async function loadAnalisisRapido() {
+    const a = await api('/api/ventas/analisis?periodo=mes').catch(() => null);
+    if (!a || !a.estrella) return;
+    let html = `
+      <div class="insight insight-green"><span class="insight-ico">★</span><div>
+        <strong>${esc(a.estrella.nombre)}</strong> es tu producto estrella: te dejó ${fmt(a.estrella.utilidad)} de ganancia este mes.</div></div>`;
+    if (a.mas_vendido && a.mas_vendido.nombre !== a.estrella.nombre) {
+      html += `<div class="insight insight-blue"><span class="insight-ico">#</span><div>
+        El que más sale es <strong>${esc(a.mas_vendido.nombre)}</strong> (${a.mas_vendido.cantidad} unidades).</div></div>`;
     }
+    const bajoMargen = a.productos.filter(p => p.margen < 15 && p.ingreso > 0).sort((x, y) => y.ingreso - x.ingreso)[0];
+    if (bajoMargen) {
+      html += `<div class="insight insight-orange"><span class="insight-ico">!</span><div>
+        <strong>${esc(bajoMargen.nombre)}</strong> vende pero deja solo ${bajoMargen.margen}% de margen. Revisa su precio o su costo.</div></div>`;
+    }
+    if (a.sin_ventas.length) {
+      html += `<div class="insight"><span class="insight-ico">z</span><div>
+        ${a.sin_ventas.length} producto${a.sin_ventas.length === 1 ? '' : 's'} sin ventas este mes: ${a.sin_ventas.slice(0, 3).map(esc).join(', ')}${a.sin_ventas.length > 3 ? '…' : ''}</div></div>`;
+    }
+    document.getElementById('quick-analysis').innerHTML = html;
+  }
+
+  async function loadUltimas() {
+    const d = await api('/api/ventas/lista?periodo=todo&limite=6').catch(() => null);
+    if (!d || !d.ventas.length) return;
+    document.getElementById('ultimas-ventas').innerHTML = d.ventas.map(v => `
+      <div class="venta-item">
+        <div class="vi-main"><strong>${esc(v.producto)}</strong><span>${v.cantidad} × ${fmt(v.precio_unitario)} · ${fechaCorta(v.fecha)}</span></div>
+        <div class="vi-valor">${fmt(v.ingreso)}<span class="${v.utilidad >= 0 ? 'green' : 'red'}">+${fmt(v.utilidad)}</span></div>
+      </div>`).join('');
   }
 
   function buildChart(g) {
     const ctx = document.getElementById('chart-ventas').getContext('2d');
-    const grad1 = ctx.createLinearGradient(0, 0, 0, 260);
-    grad1.addColorStop(0, 'rgba(59,158,255,0.3)');
+    const grad1 = ctx.createLinearGradient(0, 0, 0, 270);
+    grad1.addColorStop(0, 'rgba(59,158,255,0.28)');
     grad1.addColorStop(1, 'rgba(59,158,255,0)');
-    const grad2 = ctx.createLinearGradient(0, 0, 0, 260);
-    grad2.addColorStop(0, 'rgba(34,211,165,0.2)');
-    grad2.addColorStop(1, 'rgba(34,211,165,0)');
-
     if (ventasChart) ventasChart.destroy();
     ventasChart = new Chart(ctx, {
       type: 'line',
       data: {
         labels: g.labels,
         datasets: [
-          { label: 'Ingresos', data: g.ingresos, borderColor: '#3b9eff', backgroundColor: grad1, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 5, borderWidth: 2 },
-          { label: 'Utilidad', data: g.utilidades, borderColor: '#22d3a5', backgroundColor: grad2, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 5, borderWidth: 2 }
+          { label: 'Ventas', data: g.ingresos, borderColor: '#3b9eff', backgroundColor: grad1, fill: true, tension: 0.35, pointRadius: 0, pointHoverRadius: 5, borderWidth: 2 },
+          { label: 'Ganancia', data: g.utilidades, borderColor: '#22d3a5', backgroundColor: 'transparent', tension: 0.35, pointRadius: 0, pointHoverRadius: 5, borderWidth: 2 }
         ]
       },
       options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { labels: { color: '#64748b' } },
-          tooltip: { backgroundColor: '#0d1117', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, callbacks: { label: ctx => ' ' + fmt(ctx.raw) } }
-        },
+        interaction: { mode: 'index', intersect: false },
+        plugins: { tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.raw)}` } } },
         scales: {
-          x: { ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.04)' } },
-          y: { ticks: { color: '#64748b', callback: v => fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' } }
+          x: { ticks: { maxTicksLimit: 8 }, grid: { display: false } },
+          y: { ticks: { callback: v => fmtCorto(v), maxTicksLimit: 6 }, beginAtZero: true }
         }
       }
     });
   }
 
-  async function mostrarComparativo() {
-    const r = await fetch('/api/analisis-comparativo');
-    const d = await r.json();
+  async function mostrarComparativo(btn) {
+    let d;
+    try { d = await conCarga(btn, () => api('/api/analisis-comparativo'), 'Cargando...'); }
+    catch (e) { toast(e.message, 'error'); return; }
 
-    const tendenciaColor = d.variacion.tendencia === 'positiva' ? 'var(--green)' : 'var(--red)';
-    const tendenciaIcono = d.variacion.tendencia === 'positiva' ? '📈' : '📉';
+    const v = d.variacion;
+    const fila = (titulo, items, cols) => items.length ? `
+      <div style="margin-top:20px">
+        <div class="seccion-titulo">${titulo}</div>
+        <div class="table-wrap"><table><thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+        <tbody>${items.join('')}</tbody></table></div>
+      </div>` : '';
 
     let html = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
-        <div style="background:var(--surface);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:12px;color:var(--text-muted)">${d.mes_actual.nombre}</div>
-          <div style="font-size:24px;font-weight:800;color:var(--accent)">${fmt(d.mes_actual.ventas)}</div>
-          <div style="font-size:11px;color:var(--text-muted)">Utilidad: ${fmt(d.mes_actual.utilidad)}</div>
-          <div style="font-size:11px;color:var(--text-muted)">${d.mes_actual.transacciones} transacciones</div>
+      <div class="grid-2" style="margin-bottom:0">
+        <div class="comp-box actual">
+          <div class="comp-label">${esc(d.mes_actual.nombre)}</div>
+          <div class="comp-valor">${fmt(d.mes_actual.ventas)}</div>
+          <div class="comp-sub">Ganancia ${fmt(d.mes_actual.utilidad)} · ${d.mes_actual.transacciones} ventas</div>
         </div>
-        <div style="background:var(--surface);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:12px;color:var(--text-muted)">${d.mes_anterior.nombre}</div>
-          <div style="font-size:24px;font-weight:800;color:var(--text-muted)">${fmt(d.mes_anterior.ventas)}</div>
-          <div style="font-size:11px;color:var(--text-muted)">Utilidad: ${fmt(d.mes_anterior.utilidad)}</div>
-          <div style="font-size:11px;color:var(--text-muted)">${d.mes_anterior.transacciones} transacciones</div>
+        <div class="comp-box">
+          <div class="comp-label">${esc(d.mes_anterior.nombre)}</div>
+          <div class="comp-valor">${fmt(d.mes_anterior.ventas)}</div>
+          <div class="comp-sub">Ganancia ${fmt(d.mes_anterior.utilidad)} · ${d.mes_anterior.transacciones} ventas</div>
         </div>
       </div>
-      
-      <div class="alert-banner ${d.variacion.tendencia === 'positiva' ? 'alert-success' : 'alert-danger'}" style="justify-content:center;margin-bottom:20px">
-        ${tendenciaIcono} Variación: <strong>${d.variacion.ventas_pct > 0 ? '+' : ''}${d.variacion.ventas_pct}% en ventas</strong> 
-        | ${d.variacion.utilidad_pct > 0 ? '+' : ''}${d.variacion.utilidad_pct}% en utilidad
+      <div class="alert-banner ${v.tendencia === 'positiva' ? 'alert-success' : 'alert-danger'}" style="margin-top:14px;justify-content:center">
+        Ventas ${pct(v.ventas_pct)} · Ganancia ${pct(v.utilidad_pct)} (comparando los mismos días de cada mes)
       </div>`;
 
-    if (d.productos_comparables && d.productos_comparables.length > 0) {
-      html += `
-        <div style="margin-bottom:20px">
-          <div style="font-size:14px;font-weight:600;margin-bottom:12px">📊 Productos con mayor crecimiento</div>
-          <div class="table-wrap">
-            <table style="width:100%">
-              <thead><tr><th>Producto</th><th>Mes anterior</th><th>Mes actual</th><th>Variación</th></tr></thead>
-              <tbody>
-                ${d.productos_comparables.slice(0, 5).map(p => `
-                  <tr>
-                    <td><strong>${p.nombre}</strong></td>
-                    <td>${fmt(p.ingreso_anterior)}</td>
-                    <td>${fmt(p.ingreso_actual)}</td>
-                    <td style="color:${p.variacion >= 0 ? 'var(--green)' : 'var(--red)'}">${p.variacion > 0 ? '+' : ''}${p.variacion}%</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>`;
-    }
-
-    if (d.productos_nuevos && d.productos_nuevos.length > 0) {
-      html += `
-        <div style="margin-bottom:20px">
-          <div style="font-size:14px;font-weight:600;margin-bottom:12px">✨ Nuevos productos este mes</div>
-          <div class="table-wrap">
-            <table style="width:100%">
-              <thead><tr><th>Producto</th><th>Ingresos</th><th>Cantidad</th></tr></thead>
-              <tbody>
-                ${d.productos_nuevos.map(p => `<tr><td><strong>${p.nombre}</strong></td><td>${fmt(p.ingreso)}</td><td>${p.cantidad} uds</td></tr>`).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>`;
-    }
-
-    if (d.productos_perdidos && d.productos_perdidos.length > 0) {
-      html += `
-        <div>
-          <div style="font-size:14px;font-weight:600;margin-bottom:12px">⚠️ Productos que dejaron de venderse</div>
-          <div class="table-wrap">
-            <table style="width:100%">
-              <thead><tr><th>Producto</th><th>Ingresos perdidos</th><th>Cantidad anterior</th></tr></thead>
-              <tbody>
-                ${d.productos_perdidos.map(p => `<tr><td><strong>${p.nombre}</strong></td><td style="color:var(--red)">-${fmt(p.ingreso)}</td><td>${p.cantidad} uds</td></tr>`).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>`;
-    }
+    html += fila('Cómo cambió cada producto', d.productos_comparables.slice(0, 6).map(p => `
+      <tr><td><strong>${esc(p.nombre)}</strong></td><td>${fmt(p.ingreso_anterior)}</td><td>${fmt(p.ingreso_actual)}</td>
+      <td class="${p.variacion >= 0 ? 'green' : 'red'}">${pct(p.variacion)}</td></tr>`), ['Producto', 'Mes pasado', 'Este mes', 'Cambio']);
+    html += fila('Se vendieron este mes y no el pasado', d.productos_nuevos.map(p => `
+      <tr><td><strong>${esc(p.nombre)}</strong></td><td>${fmt(p.ingreso)}</td><td>${p.cantidad} unid.</td></tr>`), ['Producto', 'Ventas', 'Cantidad']);
+    html += fila('Dejaron de venderse', d.productos_perdidos.map(p => `
+      <tr><td><strong>${esc(p.nombre)}</strong></td><td class="red">${fmt(p.ingreso)}</td><td>${p.cantidad} unid.</td></tr>`), ['Producto', 'Vendía', 'Cantidad']);
 
     document.getElementById('comparativo-content').innerHTML = html;
-    document.getElementById('modal-comparativo').classList.add('open');
+    openModal('modal-comparativo');
   }
 
-  async function loadDemoData() {
-    const btn = event.target;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Cargando...';
-
-    const r = await fetch('/api/demo-data', { method: 'POST' });
-    const d = await r.json();
-
-    btn.innerHTML = '⚡ Cargar Demo';
-    btn.disabled = false;
-
-    if (d.success) {
-      toast(d.mensaje || 'Datos demo cargados correctamente', 'success');
-      loadDashboard();
-    } else {
-      toast('Error: ' + d.error, 'error');
-    }
-  }
-
+  document.addEventListener('venta-registrada', loadDashboard);
   loadDashboard();
 </script>
 {% endblock %}

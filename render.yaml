@@ -5,9 +5,21 @@ services:
     repo: https://github.com/juank7678/inventaPro
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 120
     envVars:
-      - key: SECRET_KEY
-        value: inventa-secret-key-2024-v2
       - key: PYTHON_VERSION
         value: 3.11.8
+      # Clave de sesiones: Render la genera una vez y la guarda.
+      - key: SECRET_KEY
+        generateValue: true
+      - key: APP_TZ
+        value: America/Bogota
+      # Base de datos permanente (Postgres de Supabase, Neon, etc.).
+      # SIN ESTA VARIABLE LOS DATOS SE BORRAN EN CADA REINICIO.
+      - key: DATABASE_URL
+        sync: false
+      # Usuario administrador que se crea la primera vez.
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

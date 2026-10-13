@@ -1,165 +1,131 @@
 {% extends "base.html" %}
-{% block title %}Pronóstico de Ventas{% endblock %}
-{% block page_title %}📈 Pronóstico Inteligente{% endblock %}
-
-{% block topbar_actions %}
-<button class="btn btn-primary btn-sm" onclick="generarForecast()">🔄 Recalcular</button>
-{% endblock %}
+{% block title %}Pronóstico{% endblock %}
+{% block page_title %}Pronóstico de ventas{% endblock %}
 
 {% block content %}
-<div class="card" style="margin-bottom:24px;border-color:rgba(59,158,255,0.3)">
-    <div style="display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center">
-        <div>
-            <div
-                style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:8px">
-                🤖 Machine Learning</div>
-            <div style="font-size:20px;font-weight:700">Modelo Holt-Winters</div>
-            <div style="font-size:13px;color:var(--text-muted);margin-top:4px">Pronóstico basado en tendencia y
-                estacionalidad semanal</div>
-        </div>
-        <div style="font-size:48px">🔮</div>
-    </div>
+<div class="card intro-card">
+  <div>
+    <div class="eyebrow">Próximos 30 días</div>
+    <div class="intro-titulo">¿Cuánto podrías vender el próximo mes?</div>
+    <div class="texto-ayuda">Se estima con tus ventas diarias recientes (tendencia y patrón de cada día de la semana, modelo Holt-Winters).
+      Es una guía, no una promesa: mientras más días de ventas tengas, más acertado será.</div>
+  </div>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 300px;gap:24px;margin-bottom:24px">
-    <div class="card">
-        <div class="card-header">
-            <span class="card-title">Proyección de Ingresos — Próximos 30 días</span>
-            <span class="badge badge-blue" id="confianza-badge">Calculando...</span>
-        </div>
-        <div class="chart-container" style="height:320px"><canvas id="forecast-chart"></canvas></div>
-    </div>
-
-    <div>
-        <div class="card" style="margin-bottom:16px">
-            <div class="card-header"><span class="card-title">📊 Métricas del Modelo</span></div>
-            <div id="metricas-forecast">
-                <div class="empty-state" style="padding:20px">
-                    <div class="empty-icon">⏳</div>
-                    <div class="empty-sub">Generando pronóstico...</div>
-                </div>
-            </div>
-        </div>
-        <div class="card">
-            <div class="card-header"><span class="card-title">📅 Resumen mensual</span></div>
-            <div id="resumen-forecast"></div>
-        </div>
-    </div>
+<div id="sin-datos" class="card empty-state" hidden>
+  <div class="empty-icon">📈</div>
+  <div class="empty-title">Aún no hay suficientes datos</div>
+  <div class="empty-sub" id="sin-datos-msg"></div>
 </div>
 
-<div class="card">
+<div id="con-datos" hidden>
+  <div class="kpi-grid kpi-grid-4">
+    <div class="kpi-card highlight-blue">
+      <div class="kpi-label">Ventas estimadas (30 días)</div>
+      <div class="kpi-value blue" id="f-total">—</div>
+      <div class="kpi-delta" id="f-total-sub">&nbsp;</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Promedio por día</div>
+      <div class="kpi-value" id="f-prom">—</div>
+      <div class="kpi-delta" id="f-prom-sub">&nbsp;</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Mejor día esperado</div>
+      <div class="kpi-value" id="f-max">—</div>
+      <div class="kpi-delta" id="f-max-sub">&nbsp;</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Confiabilidad</div>
+      <div class="kpi-value" id="f-conf">—</div>
+      <div class="kpi-delta" id="f-conf-sub">&nbsp;</div>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-header">
-        <span class="card-title">⚠️ ¿Qué significa el Error Promedio (MAE)?</span>
+      <span class="card-title">Últimos 30 días y pronóstico</span>
+      <span class="badge" id="confianza-badge"></span>
     </div>
-    <div style="font-size:13px;color:var(--text-muted);line-height:1.6" id="explicacion-mae">
-        El MAE mide cuánto se equivoca el modelo en promedio por día.
-    </div>
+    <div class="chart-container" style="height:320px"><canvas id="forecast-chart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">¿Qué tan exacto es?</span></div>
+    <div id="explicacion" class="texto-ayuda" style="font-size:14px"></div>
+  </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-    let forecastChart = null;
+  let forecastChart = null;
 
-    async function generarForecast() {
-        const r = await fetch('/api/forecast?dias=30');
-        const d = await r.json();
+  async function generarForecast() {
+    let d;
+    try { d = await api('/api/forecast?dias=30'); }
+    catch (e) { d = { success: false, error: e.message }; }
 
-        if (!d.success) {
-            document.getElementById('metricas-forecast').innerHTML = `
-      <div class="alert-banner alert-warning">
-        ⚠️ ${d.error || 'No se pudo generar el pronóstico'}<br>
-        <small>Carga al menos 14 días de ventas para habilitar esta función</small>
-      </div>`;
-            return;
-        }
-
-        const promedioVentas = d.forecast.reduce((a, b) => a + b, 0) / d.forecast.length;
-        const errorPorcentaje = (d.mae / promedioVentas * 100).toFixed(1);
-
-        let interpretacion = '';
-        let colorError = '';
-
-        if (errorPorcentaje < 15) {
-            interpretacion = '✅ Excelente: El modelo es muy preciso. El error es menor al 15% del promedio de ventas.';
-            colorError = 'var(--green)';
-        } else if (errorPorcentaje < 30) {
-            interpretacion = '⚠️ Aceptable: El modelo tiene precisión moderada. Úsalo como guía, no como regla exacta.';
-            colorError = 'var(--orange)';
-        } else {
-            interpretacion = '🔴 Baja precisión: Tus ventas son muy volátiles. El pronóstico es orientativo.';
-            colorError = 'var(--red)';
-        }
-
-        document.getElementById('explicacion-mae').innerHTML = `
-    <div class="alert-banner alert-info" style="margin-bottom:10px">
-      📊 <strong>Error promedio (MAE): ${fmt(d.mae)}</strong> — equivale al <strong style="color:${colorError}">${errorPorcentaje}%</strong> del promedio diario (${fmt(promedioVentas)})
-    </div>
-    <div>${interpretacion}</div>
-  `;
-
-        const badge = document.getElementById('confianza-badge');
-        badge.textContent = `🔮 Confianza: ${d.confianza} (${errorPorcentaje}% error)`;
-        badge.className = `badge ${d.confianza === 'Alta' ? 'badge-green' : d.confianza === 'Media' ? 'badge-orange' : 'badge-red'}`;
-
-        document.getElementById('metricas-forecast').innerHTML = `
-    <div style="margin-bottom:12px">
-      <div style="font-size:11px;color:var(--text-muted)">Error promedio (MAE)</div>
-      <div style="font-size:20px;font-weight:700;color:${colorError}">${fmt(d.mae)}</div>
-      <div style="font-size:11px;color:var(--text-muted)">${errorPorcentaje}% del promedio diario</div>
-    </div>
-    <div>
-      <div style="font-size:11px;color:var(--text-muted)">Días analizados</div>
-      <div style="font-size:20px;font-weight:700">${d.dias_analizados}</div>
-      <div style="font-size:11px;color:var(--text-muted)">para entrenar el modelo</div>
-    </div>
-  `;
-
-        const totalForecast = d.forecast.reduce((a, b) => a + b, 0);
-        const promedio = totalForecast / d.forecast.length;
-        const maximo = Math.max(...d.forecast);
-
-        document.getElementById('resumen-forecast').innerHTML = `
-    <div style="margin-bottom:12px">
-      <div style="font-size:11px;color:var(--text-muted)">Total proyectado 30 días</div>
-      <div style="font-size:22px;font-weight:800;color:var(--accent)">${fmt(totalForecast)}</div>
-    </div>
-    <div style="margin-bottom:12px">
-      <div style="font-size:11px;color:var(--text-muted)">Promedio diario</div>
-      <div style="font-size:16px;font-weight:600">${fmt(promedio)}</div>
-    </div>
-    <div>
-      <div style="font-size:11px;color:var(--text-muted)">Día pico estimado</div>
-      <div style="font-size:16px;font-weight:600">${fmt(maximo)}</div>
-    </div>
-  `;
-
-        const ctx = document.getElementById('forecast-chart').getContext('2d');
-        if (forecastChart) forecastChart.destroy();
-
-        forecastChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: d.fechas,
-                datasets: [{
-                    label: 'Pronóstico de ingresos',
-                    data: d.forecast,
-                    borderColor: '#3b9eff',
-                    backgroundColor: 'rgba(59,158,255,0.1)',
-                    fill: true,
-                    tension: 0.3,
-                    borderWidth: 3,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: { tooltip: { callbacks: { label: (ctx) => ` 📈 ${fmt(ctx.raw)}` } } },
-                scales: { y: { ticks: { callback: (v) => fmt(v) } } }
-            }
-        });
+    if (!d.success) {
+      document.getElementById('sin-datos').hidden = false;
+      document.getElementById('con-datos').hidden = true;
+      document.getElementById('sin-datos-msg').textContent = `${d.error}. El pronóstico se activa con al menos 14 días de ventas registradas.`;
+      return;
     }
+    document.getElementById('sin-datos').hidden = true;
+    document.getElementById('con-datos').hidden = false;
 
-    generarForecast();
+    const total = d.forecast.reduce((a, b) => a + b, 0);
+    const prom = total / d.forecast.length;
+    const histTotal = d.historico.valores.reduce((a, b) => a + b, 0);
+    const maxV = Math.max(...d.forecast);
+    const maxI = d.forecast.indexOf(maxV);
+
+    document.getElementById('f-total').textContent = fmt(total);
+    const cambio = histTotal ? (total - histTotal) / histTotal * 100 : null;
+    document.getElementById('f-total-sub').innerHTML = cambio === null ? '' :
+      `<span class="${cambio >= 0 ? 'up' : 'down'}">${pct(cambio)}</span> frente a los últimos 30 días`;
+    document.getElementById('f-prom').textContent = fmt(prom);
+    document.getElementById('f-prom-sub').textContent = `Hoy promedias ${fmt(histTotal / d.historico.valores.length)}`;
+    document.getElementById('f-max').textContent = fmt(maxV);
+    document.getElementById('f-max-sub').textContent = `alrededor del ${d.fechas[maxI]}`;
+
+    const color = { Alta: 'green', Media: 'orange', Baja: 'red' }[d.confianza];
+    document.getElementById('f-conf').textContent = d.confianza;
+    document.getElementById('f-conf').className = `kpi-value ${color}`;
+    document.getElementById('f-conf-sub').textContent = `${d.dias_analizados} días analizados`;
+    const badge = document.getElementById('confianza-badge');
+    badge.textContent = `Error típico ±${fmt(d.mae)} al día`;
+    badge.className = `badge badge-${color}`;
+
+    document.getElementById('explicacion').innerHTML = `
+      En promedio, el modelo se equivoca <strong>${fmt(d.mae)}</strong> por día, que es el <strong class="${color}">${d.error_pct}%</strong>
+      de lo que vendes en un día normal. ${d.confianza === 'Alta' ? 'Es una estimación bastante confiable.'
+        : d.confianza === 'Media' ? 'Úsalo como guía general, no como cifra exacta.'
+        : 'Tus ventas varían mucho de un día a otro, así que tómalo solo como referencia.'}`;
+
+    const labels = [...d.historico.fechas, ...d.fechas];
+    const hist = [...d.historico.valores, ...d.fechas.map(() => null)];
+    const fut = [...d.historico.valores.map((_, i, a) => i === a.length - 1 ? a[i] : null), ...d.forecast];
+
+    if (forecastChart) forecastChart.destroy();
+    forecastChart = new Chart(document.getElementById('forecast-chart'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Ventas reales', data: hist, borderColor: '#94a3b8', backgroundColor: 'transparent', tension: 0.3, borderWidth: 2, pointRadius: 0 },
+          { label: 'Pronóstico', data: fut, borderColor: '#3b9eff', backgroundColor: 'rgba(59,158,255,0.12)', fill: true, borderDash: [6, 4], tension: 0.3, borderWidth: 2.5, pointRadius: 0 },
+        ]
+      },
+      options: {
+        interaction: { mode: 'index', intersect: false },
+        plugins: { tooltip: { filter: i => i.raw !== null, callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.raw)}` } } },
+        scales: { x: { ticks: { maxTicksLimit: 10 }, grid: { display: false } }, y: { beginAtZero: true, ticks: { callback: v => fmtCorto(v) } } }
+      }
+    });
+  }
+
+  generarForecast();
 </script>
 {% endblock %}

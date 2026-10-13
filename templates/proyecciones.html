@@ -1,439 +1,285 @@
 {% extends "base.html" %}
 {% block title %}Proyecciones{% endblock %}
-{% block page_title %}Proyecciones Financieras{% endblock %}
-
-{% block topbar_actions %}
-<button class="btn btn-danger btn-sm" onclick="confirmarLimpiar()" id="btn-limpiar">
-  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-  Limpiar Todo
-</button>
-<button class="btn btn-primary btn-sm" onclick="calcularAutomatico()" id="btn-calcular">
-  ⚡ Calcular Ahora
-</button>
-{% endblock %}
+{% block page_title %}Proyecciones{% endblock %}
 
 {% block content %}
-
-<!-- HERO: El sistema te dice qué necesitas vender -->
-<div class="card" style="margin-bottom:24px;border-color:rgba(0,113,227,0.3);background:linear-gradient(135deg,rgba(0,113,227,0.06) 0%,rgba(0,0,0,0) 100%)">
-  <div style="display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center">
-    <div>
-      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--blue);margin-bottom:8px">📊 Motor de Proyección</div>
-      <div style="font-size:22px;font-weight:700;letter-spacing:-0.5px;margin-bottom:6px">El sistema calcula cuánto necesitas vender</div>
-      <div style="font-size:14px;color:var(--text-muted)">Con base en tus gastos registrados y catálogo de productos, Inventa calcula automáticamente el volumen de ventas mínimo para cubrir costos y generar utilidad.</div>
-    </div>
-    <div style="font-size:52px">🔮</div>
+<div class="card intro-card">
+  <div>
+    <div class="eyebrow">Punto de equilibrio</div>
+    <div class="intro-titulo">¿Cuánto necesitas vender para no perder plata?</div>
+    <div class="texto-ayuda">Con tus gastos mensuales y lo que ganas en cada producto, la app calcula cuánto debes vender al día
+      para cubrir gastos, cuándo recuperas lo invertido y qué pasa si vendes más o menos.</div>
   </div>
 </div>
 
-<div style="display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start">
-
-  <!-- LEFT: Solo capital + ventas estimadas -->
-  <div style="display:flex;flex-direction:column;gap:20px">
-
-    <!-- Capital -->
+<div class="grid-proy">
+  <div class="col-izq">
     <div class="card">
-      <div class="card-header"><span class="card-title">💼 Tu Inversión</span></div>
+      <div class="card-header"><span class="card-title">Tus números</span></div>
       <div class="form-group">
-        <label class="form-label">Capital inicial invertido ($)</label>
-        <input class="form-control" id="capital" type="number" placeholder="10000000" value="10000000"
-          style="font-size:16px;font-weight:600;padding:12px 14px">
-        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Monto total que invertiste o planeas invertir</div>
+        <label class="form-label" for="capital">Lo que invertiste para empezar</label>
+        <input class="form-control input-grande" id="capital" type="number" min="0" step="10000" inputmode="numeric" placeholder="0">
+        <div class="texto-ayuda">Mercancía inicial, empaques, equipos… Pon 0 si no aplica.</div>
       </div>
       <div class="form-group">
-        <label class="form-label">Ventas diarias que esperas lograr (unidades)</label>
-        <input class="form-control" id="ventas-dia-est" type="number" placeholder="20" value="20"
-          style="font-size:16px;font-weight:600;padding:12px 14px">
-        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Cuántas unidades crees que puedes vender por día</div>
+        <label class="form-label" for="ventas-dia-est">Unidades que esperas vender al día</label>
+        <input class="form-control input-grande" id="ventas-dia-est" type="number" min="0" step="0.5" inputmode="decimal" value="5">
+        <div class="texto-ayuda" id="ritmo-real"></div>
       </div>
-      <button class="btn btn-primary btn-lg" style="width:100%;justify-content:center" onclick="calcularAutomatico()">
-        🔮 Calcular Proyección
-      </button>
+      <button class="btn btn-primary btn-lg btn-block" id="btn-calcular" onclick="calcular()">Calcular</button>
     </div>
 
-    <!-- Gastos (readonly aquí, se editan en Inventario) -->
     <div class="card">
       <div class="card-header">
-        <span class="card-title">💸 Gastos del Negocio</span>
-        <button class="btn btn-ghost btn-sm" onclick="openGastoModal()">+ Agregar</button>
+        <span class="card-title">Gastos mensuales</span>
+        {% if es_admin %}<button class="btn btn-ghost btn-sm" onclick="openModal('modal-gasto')">+ Agregar</button>{% endif %}
       </div>
-      <div id="gastos-lista" style="display:flex;flex-direction:column;gap:8px"></div>
-      <div id="gastos-total" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;color:var(--text-muted)"></div>
-    </div>
-
-    <!-- Productos usados -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">🏷️ Productos del Catálogo</span>
-        <span class="badge badge-dim" id="num-prods-badge">0 productos</span>
-      </div>
-      <div id="prods-catalog" style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto"></div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:10px">Los cálculos usan el precio y costo promedio de tu catálogo. <a href="/productos">Editar catálogo →</a></div>
+      <div id="gastos-lista" class="lista-simple"></div>
+      <div id="gastos-total" class="total-linea"></div>
+      <div class="texto-ayuda">Arriendo, internet, transporte, publicidad, empaques… todo lo que pagas cada mes aunque no vendas.</div>
     </div>
   </div>
 
-  <!-- RIGHT: Resultados automáticos del sistema -->
   <div>
+    <div id="placeholder-results" class="card empty-state">
+      <div class="empty-icon">🧮</div>
+      <div class="empty-title">Listo para calcular</div>
+      <div class="empty-sub">Revisa tus gastos y toca “Calcular”.</div>
+    </div>
 
-    <!-- Diagnóstico principal — el sistema te habla -->
-    <div id="diagnostico-panel" style="display:none;margin-bottom:20px">
-      <div class="card" id="diagnostico-card" style="border-left:4px solid var(--blue);padding:28px 28px 24px;margin-bottom:16px">
-        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:12px">📋 DIAGNÓSTICO DEL SISTEMA</div>
-        <div id="diagnostico-texto" style="font-size:16px;line-height:1.7;color:var(--text)"></div>
+    <div id="diagnostico-panel" hidden>
+      <div class="card diagnostico" id="diagnostico-card">
+        <div class="eyebrow">Diagnóstico</div>
+        <div id="diagnostico-texto" class="diagnostico-texto"></div>
+        <div class="texto-ayuda" id="base-calculo"></div>
       </div>
 
-      <!-- Las 4 métricas clave que el sistema comunica -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
-        <div class="kpi-card" style="background:rgba(0,113,227,0.08);border-color:rgba(0,113,227,0.25);text-align:center;padding:20px">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Ventas mínimas/día para no perder</div>
-          <div style="font-size:28px;font-weight:800;color:var(--blue);letter-spacing:-1px" id="r-venta-min-dia">—</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px" id="r-units-min">— unidades/día</div>
+      <div class="grid-2">
+        <div class="kpi-card highlight-blue">
+          <div class="kpi-label">Venta mínima al día para no perder</div>
+          <div class="kpi-value blue" id="r-venta-min-dia">—</div>
+          <div class="kpi-delta" id="r-units-min">—</div>
         </div>
-        <div class="kpi-card" style="text-align:center;padding:20px" id="card-util-dia">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Utilidad diaria con tus ventas estimadas</div>
-          <div style="font-size:28px;font-weight:800;letter-spacing:-1px" id="r-util-dia">—</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px" id="r-util-sub">—</div>
+        <div class="kpi-card" id="card-util-dia">
+          <div class="kpi-label">Ganancia diaria con tu estimado</div>
+          <div class="kpi-value" id="r-util-dia">—</div>
+          <div class="kpi-delta" id="r-util-sub">—</div>
         </div>
-        <div class="kpi-card" style="text-align:center;padding:20px">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Días para recuperar capital</div>
-          <div style="font-size:28px;font-weight:800;letter-spacing:-1px" id="r-dias-rec">—</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px" id="r-dias-sub">—</div>
+        <div class="kpi-card">
+          <div class="kpi-label">Recuperas la inversión en</div>
+          <div class="kpi-value" id="r-dias-rec">—</div>
+          <div class="kpi-delta" id="r-dias-sub">—</div>
         </div>
-        <div class="kpi-card" style="background:rgba(48,209,88,0.08);border-color:rgba(48,209,88,0.25);text-align:center;padding:20px">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Mes en que empiezas a generar ganancias</div>
-          <div style="font-size:28px;font-weight:800;color:var(--green);letter-spacing:-1px" id="r-mes-util">—</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">desde el inicio del negocio</div>
+        <div class="kpi-card highlight-green">
+          <div class="kpi-label">Empiezas a ganar desde</div>
+          <div class="kpi-value green" id="r-mes-util">—</div>
+          <div class="kpi-delta">contando desde el inicio</div>
         </div>
       </div>
 
-      <!-- Métricas de respaldo -->
-      <div class="card" style="margin-bottom:20px">
-        <div class="card-header"><span class="card-title">📐 Desglose del Cálculo</span></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px" id="metricas-grid"></div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Así se calcula</span></div>
+        <div class="metricas-grid" id="metricas-grid"></div>
       </div>
 
-      <!-- Flujo de caja -->
-      <div class="card" style="margin-bottom:20px">
+      <div class="card">
         <div class="card-header">
-          <span class="card-title">📈 Flujo de Caja Proyectado — 12 meses</span>
-          <span class="badge badge-blue" id="badge-equilibrio"></span>
+          <span class="card-title">Plata acumulada · próximos 12 meses</span>
+          <span class="badge" id="badge-equilibrio"></span>
         </div>
         <div class="chart-container" style="height:280px"><canvas id="chart-proyeccion"></canvas></div>
       </div>
 
-      <!-- Escenarios -->
       <div class="card">
-        <div class="card-header"><span class="card-title">🎯 Escenarios de Ventas</span></div>
+        <div class="card-header"><span class="card-title">¿Y si vendo más o menos?</span></div>
         <div class="scenario-grid" id="scenarios"></div>
       </div>
-    </div>
-
-    <!-- Placeholder cuando no hay cálculo -->
-    <div id="placeholder-results" class="card" style="text-align:center;padding:60px 20px">
-      <div style="font-size:52px;margin-bottom:16px">📊</div>
-      <div style="font-size:18px;font-weight:700;margin-bottom:8px">Listo para calcular</div>
-      <div style="font-size:14px;color:var(--text-muted);margin-bottom:20px">
-        Inventa leerá tus gastos y catálogo de productos automáticamente<br>y te dirá exactamente cuánto necesitas vender cada día.
-      </div>
-      <button class="btn btn-primary btn-lg" onclick="calcularAutomatico()">⚡ Calcular Proyección</button>
     </div>
   </div>
 </div>
 
-<!-- Modal Gasto -->
+{% if es_admin %}
 <div class="modal-overlay" id="modal-gasto">
   <div class="modal">
-    <div class="modal-title">Agregar Gasto</div>
-    <div class="form-group">
-      <label class="form-label">Concepto</label>
-      <input class="form-control" id="g-concepto" placeholder="Ej: Arriendo local">
+    <div class="modal-head">
+      <div class="modal-title">Agregar gasto mensual</div>
+      <button class="icon-btn" onclick="closeModal('modal-gasto')" aria-label="Cerrar">✕</button>
     </div>
-    <div class="form-row">
+    <div class="form-group">
+      <label class="form-label" for="g-concepto">Concepto</label>
+      <input class="form-control" id="g-concepto" placeholder="Ej: Publicidad en Instagram" maxlength="200">
+    </div>
+    <div class="form-row form-row-2">
       <div class="form-group">
-        <label class="form-label">Monto mensual ($)</label>
-        <input class="form-control" id="g-monto" type="number" placeholder="1500000">
+        <label class="form-label" for="g-monto">Monto al mes</label>
+        <input class="form-control" id="g-monto" type="number" min="0" step="1000" inputmode="numeric" placeholder="100000">
       </div>
       <div class="form-group">
-        <label class="form-label">Tipo</label>
+        <label class="form-label" for="g-tipo">Tipo</label>
         <select class="form-control" id="g-tipo">
-          <option value="fijo">Fijo</option>
-          <option value="variable">Variable</option>
+          <option value="fijo">Fijo (siempre igual)</option>
+          <option value="variable">Variable (cambia)</option>
         </select>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-gasto')">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveGasto()">Guardar</button>
+      <button class="btn btn-primary" onclick="saveGasto(this)">Guardar</button>
     </div>
   </div>
 </div>
-
-<!-- Modal Confirmación Limpiar -->
-<div class="modal-overlay" id="modal-limpiar">
-  <div class="modal">
-    <div class="modal-title">🗑️ Limpiar datos</div>
-    <p style="font-size:14px;color:var(--text-muted);margin-bottom:16px">¿Qué deseas eliminar?</p>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <button class="btn btn-ghost" style="justify-content:flex-start;gap:12px;padding:14px 16px" onclick="limpiarDatos('ventas')">
-        <span style="font-size:20px">📊</span>
-        <div style="text-align:left">
-          <div style="font-weight:600">Solo historial de ventas</div>
-          <div style="font-size:12px;color:var(--text-muted)">Conserva productos y gastos</div>
-        </div>
-      </button>
-      <button class="btn btn-danger" style="justify-content:flex-start;gap:12px;padding:14px 16px" onclick="limpiarDatos('todo')">
-        <span style="font-size:20px">⚠️</span>
-        <div style="text-align:left">
-          <div style="font-weight:600">Todo — ventas, productos y gastos</div>
-          <div style="font-size:12px;color:rgba(255,69,58,0.7)">Esta acción no se puede deshacer</div>
-        </div>
-      </button>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-limpiar')">Cancelar</button>
-    </div>
-  </div>
-</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
-let proyChart = null;
-let totalGastosMes = 0;
-let prodsData = [];
+  let proyChart = null;
+  let totalGastosMes = 0;
 
-// ─── CARGAR GASTOS ─────────────────────────────────────────────────────────
-async function loadGastos() {
-  const r = await fetch('/api/gastos');
-  const d = await r.json();
-  totalGastosMes = d.total_fijo + d.total_variable;
-
-  const el = document.getElementById('gastos-lista');
-  el.innerHTML = d.gastos.map(g => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface);border-radius:8px;font-size:13px">
-      <div><strong>${g.concepto}</strong> <span class="badge ${g.tipo==='fijo'?'badge-blue':'badge-orange'}" style="margin-left:6px">${g.tipo}</span></div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="color:var(--text-muted)">${fmt(g.monto)}/mes</span>
-        <button class="btn btn-danger btn-sm" onclick="deleteGasto(${g.id})">×</button>
-      </div>
-    </div>`).join('') || '<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:12px">Sin gastos — <a href="#" onclick="openGastoModal()">agregar gasto</a></div>';
-
-  document.getElementById('gastos-total').innerHTML = `
-    Fijos: <strong>${fmt(d.total_fijo)}</strong> · Variables: <strong>${fmt(d.total_variable)}</strong>
-    <br><strong style="color:var(--text)">Total mensual: ${fmt(totalGastosMes)}</strong>`;
-}
-
-// ─── CARGAR PRODUCTOS ──────────────────────────────────────────────────────
-async function loadProductos() {
-  const r = await fetch('/api/productos');
-  prodsData = await r.json();
-  const el = document.getElementById('prods-catalog');
-  document.getElementById('num-prods-badge').textContent = `${prodsData.length} productos`;
-
-  el.innerHTML = prodsData.length
-    ? prodsData.map(p => `
-        <div style="display:flex;justify-content:space-between;padding:7px 10px;background:var(--surface);border-radius:6px;font-size:12px">
-          <span><strong>${p.nombre}</strong> <span style="color:var(--text-muted)">${p.categoria}</span></span>
-          <span style="color:var(--text-muted)">${fmt(p.precio_venta)} / costo ${fmt(p.costo)}</span>
-        </div>`).join('')
-    : '<div style="font-size:12px;color:var(--text-muted);padding:10px;text-align:center">Sin productos. <a href="/productos">Agregar →</a></div>';
-}
-
-// ─── CALCULAR AUTOMÁTICAMENTE ──────────────────────────────────────────────
-async function calcularAutomatico() {
-  const capital = parseFloat(document.getElementById('capital').value) || 0;
-  const ventas_dia_est = parseInt(document.getElementById('ventas-dia-est').value) || 10;
-
-  if (!prodsData.length) { toast('Agrega productos al catálogo primero', 'error'); return; }
-  if (!totalGastosMes) { toast('Agrega gastos para calcular punto de equilibrio', 'error'); return; }
-
-  const btn = document.getElementById('btn-calcular');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Calculando...';
-
-  const body = {
-    capital,
-    gastos_fijos_mes: totalGastosMes,
-    ventas_diarias_estimadas: ventas_dia_est,
-    productos: prodsData.map(p => ({ precio: p.precio_venta, costo: p.costo, cantidad_dia: 1 }))
-  };
-
-  const r = await fetch('/api/proyeccion/calcular', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const d = await r.json();
-
-  btn.disabled = false; btn.innerHTML = '⚡ Calcular Ahora';
-
-  if (d.error) { toast('Error: ' + d.error, 'error'); return; }
-
-  document.getElementById('diagnostico-panel').style.display = 'block';
-  document.getElementById('placeholder-results').style.display = 'none';
-
-  // ─── DIAGNÓSTICO EN LENGUAJE NATURAL ───────────────────────────────────
-  const eqDia = d.ventas_equilibrio_dia;
-  const utilDia = d.utilidad_diaria_estimada;
-  const diasRec = d.dias_recuperacion_capital;
-  const mesUtil = d.mes_inicio_utilidades;
-  const ganando = utilDia > 0;
-  const suficiente = ventas_dia_est >= d.unidades_equilibrio_dia;
-
-  let diagnostico = '';
-  let cardBorder = '';
-
-  if (ganando && suficiente && mesUtil) {
-    cardBorder = 'rgba(48,209,88,0.4)';
-    diagnostico = `
-      ✅ <strong>Tu negocio es rentable con esas ventas.</strong><br><br>
-      Con <strong>${ventas_dia_est} unidades/día</strong>, generas <strong>${fmt(utilDia)} de utilidad diaria</strong>
-      después de cubrir gastos. Necesitas vender al menos <strong>${d.unidades_equilibrio_dia} unidades/día</strong>
-      (equivalentes a <strong>${fmt(eqDia)}</strong>) para cubrir todos tus costos.<br><br>
-      📅 Recuperarás tu capital de <strong>${fmt(capital)}</strong> en aproximadamente
-      <strong>${diasRec} días (~${Math.ceil(diasRec/30)} meses)</strong>. Empezarás a generar
-      ganancias netas a partir del <strong>mes ${mesUtil}</strong>.`;
-  } else if (ganando && !mesUtil) {
-    cardBorder = 'rgba(255,159,10,0.4)';
-    diagnostico = `
-      ⚠️ <strong>Generas utilidad diaria, pero tardas más de 12 meses en recuperar el capital.</strong><br><br>
-      Con <strong>${ventas_dia_est} unidades/día</strong> generas <strong>${fmt(utilDia)}/día</strong>,
-      pero dado tu capital inicial de <strong>${fmt(capital)}</strong>, necesitarías
-      <strong>${diasRec} días</strong> para recuperarlo. Considera aumentar ventas o reducir gastos.`;
-  } else {
-    cardBorder = 'rgba(255,69,58,0.4)';
-    diagnostico = `
-      🚨 <strong>Con esas ventas no cubres tus gastos.</strong><br><br>
-      Tus gastos fijos equivalen a <strong>${fmt(d.gastos_fijos_dia)}/día</strong>.
-      Con <strong>${ventas_dia_est} unidades/día</strong> pierdes <strong>${fmt(Math.abs(utilDia))}/día</strong>.
-      Necesitas vender mínimo <strong>${d.unidades_equilibrio_dia} unidades/día</strong>
-      (${fmt(eqDia)}) para no perder dinero. <br><br>
-      💡 Alternativas: reducir gastos fijos, subir precios o aumentar el volumen de ventas.`;
+  async function loadGastos() {
+    const d = await api('/api/gastos');
+    totalGastosMes = d.total_fijo + d.total_variable;
+    document.getElementById('gastos-lista').innerHTML = d.gastos.map(g => `
+      <div class="fila-simple">
+        <div><strong>${esc(g.concepto)}</strong> <span class="badge ${g.tipo === 'fijo' ? 'badge-blue' : 'badge-orange'}">${g.tipo}</span></div>
+        <div class="nowrap">${fmt(g.monto)}${ES_ADMIN ? ` <button class="icon-btn danger" onclick="deleteGasto(${g.id})" aria-label="Eliminar gasto">✕</button>` : ''}</div>
+      </div>`).join('') || '<div class="empty-state compact"><div class="empty-sub">Sin gastos registrados</div></div>';
+    document.getElementById('gastos-total').innerHTML = `Total al mes: <strong>${fmt(totalGastosMes)}</strong>`;
   }
 
-  document.getElementById('diagnostico-card').style.borderLeftColor = cardBorder;
-  document.getElementById('diagnostico-texto').innerHTML = diagnostico;
-
-  // ─── KPIs ──────────────────────────────────────────────────────────────
-  document.getElementById('r-venta-min-dia').textContent = fmt(eqDia);
-  document.getElementById('r-units-min').textContent = `${d.unidades_equilibrio_dia} unidades/día como mínimo`;
-
-  const utilEl = document.getElementById('r-util-dia');
-  utilEl.textContent = fmt(utilDia);
-  utilEl.style.color = utilDia >= 0 ? 'var(--green)' : 'var(--red)';
-  document.getElementById('r-util-sub').textContent = utilDia >= 0 ? '✅ Rentable con tus ventas estimadas' : '❌ Por debajo del punto de equilibrio';
-
-  document.getElementById('r-dias-rec').textContent = diasRec > 0 ? `${diasRec} días` : '∞';
-  document.getElementById('r-dias-sub').textContent = diasRec > 0 ? `≈ ${Math.ceil(diasRec/30)} meses` : 'No viable con estas ventas';
-
-  const mesEl = document.getElementById('r-mes-util');
-  mesEl.textContent = mesUtil ? `Mes ${mesUtil}` : '> 12 meses';
-  mesEl.style.color = mesUtil ? 'var(--green)' : 'var(--red)';
-
-  // ─── DESGLOSE ──────────────────────────────────────────────────────────
-  document.getElementById('metricas-grid').innerHTML = [
-    { l: 'Precio promedio', v: fmt(d.precio_promedio) },
-    { l: 'Costo promedio', v: fmt(d.costo_promedio) },
-    { l: 'Margen por unidad', v: fmt(d.margen_contribucion) },
-    { l: 'Margen %', v: d.margen_porcentaje + '%' },
-    { l: 'Gastos fijos/día', v: fmt(d.gastos_fijos_dia) },
-    { l: 'Ingreso diario est.', v: fmt(d.ingreso_diario_estimado) },
-  ].map(m => `<div style="padding:12px;background:var(--surface);border-radius:8px"><div style="font-size:11px;color:var(--text-muted)">${m.l}</div><div style="font-size:16px;font-weight:700;margin-top:2px">${m.v}</div></div>`).join('');
-
-  // ─── BADGE EQUILIBRIO ──────────────────────────────────────────────────
-  document.getElementById('badge-equilibrio').textContent = mesUtil ? `Punto de equilibrio: Mes ${mesUtil}` : 'No alcanza equilibrio en 12 meses';
-  document.getElementById('badge-equilibrio').className = `badge ${mesUtil ? 'badge-green' : 'badge-red'}`;
-
-  // ─── GRÁFICA ──────────────────────────────────────────────────────────
-  buildProyChart(d.proyecciones_mensuales, d.mes_inicio_utilidades);
-
-  // ─── ESCENARIOS ────────────────────────────────────────────────────────
-  const baseUtil = utilDia * 30;
-  const scen = [
-    { icon: '🚀', label: 'Optimista', desc: '+50% ventas', mult: 1.5, cls: 'optimista', color: 'var(--green)' },
-    { icon: '📊', label: 'Realista', desc: 'Ventas estimadas', mult: 1, cls: 'realista', color: 'var(--blue)' },
-    { icon: '🛡️', label: 'Conservador', desc: '−50% ventas', mult: 0.5, cls: 'conservador', color: 'var(--orange)' },
-  ];
-  document.getElementById('scenarios').innerHTML = scen.map(s => {
-    const util = baseUtil * s.mult;
-    const diasEst = util > 0 ? Math.ceil(capital / util * 30) : -1;
-    return `<div class="scenario-card ${s.cls}">
-      <div style="font-size:24px;margin-bottom:8px">${s.icon}</div>
-      <div style="font-weight:700;color:${s.color}">${s.label}</div>
-      <div style="font-size:11px;color:var(--text-muted);margin:4px 0">${s.desc}</div>
-      <div style="font-size:20px;font-weight:800;margin:8px 0">${fmt(util)}/mes</div>
-      <div style="font-size:11px;color:var(--text-muted)">${diasEst > 0 ? `Recupera capital en ~${diasEst} días` : '⚠️ No cubre gastos'}</div>
-    </div>`;
-  }).join('');
-}
-
-// ─── GRÁFICA ───────────────────────────────────────────────────────────────
-function buildProyChart(data, mesEquilibrio) {
-  const ctx = document.getElementById('chart-proyeccion').getContext('2d');
-  const gradAc = ctx.createLinearGradient(0, 0, 0, 280);
-  gradAc.addColorStop(0, 'rgba(48,209,88,0.25)');
-  gradAc.addColorStop(1, 'rgba(48,209,88,0)');
-  if (proyChart) proyChart.destroy();
-
-  proyChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: data.map(d => `Mes ${d.mes}`),
-      datasets: [
-        { type: 'line', label: 'Capital Acumulado', data: data.map(d => d.capital_acumulado), borderColor: '#30d158', backgroundColor: gradAc, fill: true, tension: 0.4, yAxisID: 'y1', borderWidth: 2, pointRadius: data.map(d => d.mes === mesEquilibrio ? 7 : 3), pointBackgroundColor: data.map(d => d.mes === mesEquilibrio ? '#30d158' : 'transparent'), pointBorderColor: '#30d158' },
-        { label: 'Ingresos', data: data.map(d => d.ingreso), backgroundColor: 'rgba(0,113,227,0.45)', borderRadius: 5, yAxisID: 'y' },
-        { label: 'Costos', data: data.map(d => d.costos), backgroundColor: 'rgba(255,69,58,0.35)', borderRadius: 5, yAxisID: 'y' },
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { labels: { color: '#86868b', font: { family: 'Inter', size: 11 }, usePointStyle: true } },
-        tooltip: { backgroundColor: '#1c1c1e', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, callbacks: { label: c => ' ' + fmt(c.raw) } },
-        annotation: mesEquilibrio ? {} : {}
-      },
-      scales: {
-        y: { ticks: { color: '#424245', callback: v => fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' } },
-        y1: { position: 'right', ticks: { color: '#30d158', callback: v => fmt(v) }, grid: { display: false } },
-        x: { ticks: { color: '#424245', font: { size: 11 } }, grid: { display: false } }
+  async function init() {
+    try {
+      const [cfg, d] = await Promise.all([api('/api/config'), api('/api/dashboard'), loadGastos()]);
+      document.getElementById('capital').value = cfg.capital_inicial || 0;
+      const diasMes = new Date().getDate();
+      if (d.mes.unidades) {
+        const ritmo = d.mes.unidades / diasMes;
+        document.getElementById('ventas-dia-est').value = Math.max(0.5, Math.round(ritmo * 2) / 2);
+        document.getElementById('ritmo-real').textContent = `Este mes vas en ${ritmo.toFixed(1)} unidades por día.`;
       }
-    }
-  });
-}
-
-// ─── GASTOS CRUD ───────────────────────────────────────────────────────────
-function openGastoModal() { document.getElementById('modal-gasto').classList.add('open'); }
-
-async function saveGasto() {
-  const b = { concepto: document.getElementById('g-concepto').value, monto: parseFloat(document.getElementById('g-monto').value) || 0, tipo: document.getElementById('g-tipo').value, frecuencia: 'mensual' };
-  if (!b.concepto || !b.monto) { toast('Completa todos los campos', 'error'); return; }
-  const r = await fetch('/api/gastos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
-  const d = await r.json();
-  if (d.success) { closeModal('modal-gasto'); toast('Gasto guardado', 'success'); document.getElementById('g-concepto').value=''; document.getElementById('g-monto').value=''; loadGastos(); }
-}
-
-async function deleteGasto(id) {
-  await fetch(`/api/gastos/${id}`, { method: 'DELETE' });
-  toast('Gasto eliminado', 'info'); loadGastos();
-}
-
-// ─── LIMPIAR DATOS ─────────────────────────────────────────────────────────
-function confirmarLimpiar() { document.getElementById('modal-limpiar').classList.add('open'); }
-
-async function limpiarDatos(tipo) {
-  closeModal('modal-limpiar');
-  const r = await fetch(`/api/datos?tipo=${tipo}`, { method: 'DELETE' });
-  const d = await r.json();
-  if (d.success) {
-    toast(d.mensaje, 'success');
-    document.getElementById('diagnostico-panel').style.display = 'none';
-    document.getElementById('placeholder-results').style.display = 'block';
-    await loadGastos();
-    await loadProductos();
-    if (tipo === 'todo') { proyChart?.destroy(); }
-  } else {
-    toast('Error: ' + d.error, 'error');
+    } catch (e) { toast(e.message, 'error'); }
   }
-}
 
-// ─── INIT ──────────────────────────────────────────────────────────────────
-(async () => {
-  await Promise.all([loadGastos(), loadProductos()]);
-})();
+  async function calcular() {
+    const capital = parseFloat(document.getElementById('capital').value) || 0;
+    const ventasDia = parseFloat(document.getElementById('ventas-dia-est').value) || 0;
+    let d;
+    try {
+      d = await conCarga(document.getElementById('btn-calcular'), () => api('/api/proyeccion/calcular', {
+        method: 'POST', body: { capital, gastos_fijos_mes: totalGastosMes, ventas_diarias_estimadas: ventasDia }
+      }), 'Calculando...');
+    } catch (e) { toast(e.message, 'error'); return; }
+
+    document.getElementById('diagnostico-panel').hidden = false;
+    document.getElementById('placeholder-results').hidden = true;
+    if (window.innerWidth < 1100) document.getElementById('diagnostico-panel').scrollIntoView({ behavior: 'smooth' });
+
+    const utilDia = d.utilidad_diaria_estimada, diasRec = d.dias_recuperacion_capital, mesUtil = d.mes_inicio_utilidades;
+    const uMin = d.unidades_equilibrio_dia;
+    let texto, color;
+    if (!totalGastosMes) {
+      color = 'var(--accent)';
+      texto = `Como no registraste gastos mensuales, <strong>cada venta ya es ganancia</strong>: ganas en promedio
+        <strong>${fmt(d.margen_contribucion)}</strong> por unidad. Con ${ventasDia} unidades al día serían <strong>${fmt(utilDia * 30)} al mes</strong>.
+        Si tienes gastos fijos (transporte, publicidad, empaques), agrégalos para un cálculo real.`;
+    } else if (utilDia > 0 && mesUtil !== null) {
+      color = 'var(--green)';
+      texto = `✅ <strong>Con ${ventasDia} unidades al día tu negocio es rentable.</strong> Te quedan <strong>${fmt(utilDia)} al día</strong>
+        (${fmt(utilDia * 30)} al mes) después de pagar gastos. El mínimo para no perder es <strong>${uMin} unidades al día</strong> (${fmt(d.ventas_equilibrio_dia)}).
+        ${capital ? `Recuperas lo invertido en unos <strong>${diasRec} días</strong>.` : ''}`;
+    } else if (utilDia > 0) {
+      color = 'var(--orange)';
+      texto = `⚠️ <strong>Ganas ${fmt(utilDia)} al día, pero recuperar ${fmt(capital)} te tomaría ${diasRec} días</strong> (más de un año).
+        Para acelerarlo: vende un poco más, sube precios en los productos de menor margen o reduce gastos.`;
+    } else {
+      color = 'var(--red)';
+      texto = `🚨 <strong>Con ${ventasDia} unidades al día no alcanzas a cubrir los gastos.</strong> Tus gastos son ${fmt(d.gastos_fijos_dia)} al día
+        y pierdes ${fmt(Math.abs(utilDia))} diarios. Necesitas vender al menos <strong>${uMin} unidades al día</strong> (${fmt(d.ventas_equilibrio_dia)}).`;
+    }
+    document.getElementById('diagnostico-card').style.borderLeftColor = color;
+    document.getElementById('diagnostico-texto').innerHTML = texto;
+    document.getElementById('base-calculo').textContent = `Precio y costo promedio calculados con: ${d.base_calculo}.`;
+
+    document.getElementById('r-venta-min-dia').textContent = totalGastosMes ? fmt(d.ventas_equilibrio_dia) : '$0';
+    document.getElementById('r-units-min').textContent = totalGastosMes ? `${uMin} unidades al día` : 'No tienes gastos fijos';
+    const u = document.getElementById('r-util-dia');
+    u.textContent = fmt(utilDia);
+    u.className = 'kpi-value ' + (utilDia >= 0 ? 'green' : 'red');
+    document.getElementById('r-util-sub').textContent = `${fmt(utilDia * 30)} al mes`;
+    document.getElementById('r-dias-rec').textContent = !capital ? 'Nada que recuperar' : diasRec > 0 ? `${diasRec} días` : 'No se recupera';
+    document.getElementById('r-dias-sub').textContent = capital && diasRec > 0 ? `≈ ${Math.ceil(diasRec / 30)} meses` : capital ? 'con estas ventas' : 'no registraste inversión';
+    const mesEl = document.getElementById('r-mes-util');
+    mesEl.textContent = mesUtil === 0 ? 'El primer día' : mesUtil ? `Mes ${mesUtil}` : 'Más de 12 meses';
+    mesEl.className = 'kpi-value ' + (mesUtil !== null ? 'green' : 'red');
+
+    document.getElementById('metricas-grid').innerHTML = [
+      ['Precio promedio', fmt(d.precio_promedio)], ['Costo promedio', fmt(d.costo_promedio)],
+      ['Ganas por unidad', fmt(d.margen_contribucion)], ['Margen', d.margen_porcentaje + '%'],
+      ['Gastos por día', fmt(d.gastos_fijos_dia)], ['Ventas por día (estimado)', fmt(d.ingreso_diario_estimado)],
+    ].map(([l, v]) => `<div class="metrica"><div class="metrica-label">${l}</div><div class="metrica-valor">${v}</div></div>`).join('');
+
+    const badge = document.getElementById('badge-equilibrio');
+    badge.textContent = mesUtil !== null ? (mesUtil === 0 ? 'Rentable desde el inicio' : `Equilibrio: mes ${mesUtil}`) : 'Sin equilibrio en 12 meses';
+    badge.className = `badge ${mesUtil !== null ? 'badge-green' : 'badge-red'}`;
+
+    buildProyChart(d.proyecciones_mensuales, mesUtil);
+
+    const base = utilDia * 30;
+    document.getElementById('scenarios').innerHTML = [
+      ['Vendo la mitad', 0.5, 'conservador'], ['Lo que estimé', 1, 'realista'], ['Vendo 50% más', 1.5, 'optimista'],
+    ].map(([label, mult, cls]) => {
+      const util = ventasDia * mult * d.margen_contribucion * 30 - d.gastos_fijos_dia * 30;
+      const rec = util > 0 && capital ? Math.ceil(capital / util * 30) : null;
+      return `<div class="scenario-card ${cls}">
+        <div class="sc-label">${label}</div>
+        <div class="sc-sub">${(ventasDia * mult).toLocaleString('es-CO', { maximumFractionDigits: 1 })} unidades/día</div>
+        <div class="sc-valor ${util >= 0 ? 'green' : 'red'}">${fmt(util)}<small>/mes</small></div>
+        <div class="sc-sub">${util <= 0 ? 'No cubre los gastos' : rec ? `Recuperas la inversión en ~${rec} días` : 'Ganancia después de gastos'}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function buildProyChart(data, mesEquilibrio) {
+    const ctx = document.getElementById('chart-proyeccion');
+    if (proyChart) proyChart.destroy();
+    proyChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.map(d => `Mes ${d.mes}`),
+        datasets: [
+          { type: 'line', label: 'Plata acumulada', data: data.map(d => d.capital_acumulado), borderColor: '#22d3a5', backgroundColor: 'rgba(34,211,165,0.12)', fill: true, tension: 0.3, borderWidth: 2, pointRadius: data.map(d => d.mes === mesEquilibrio ? 6 : 2), pointBackgroundColor: '#22d3a5' },
+          { label: 'Ganancia del mes', data: data.map(d => d.utilidad), backgroundColor: data.map(d => d.utilidad >= 0 ? 'rgba(59,158,255,0.55)' : 'rgba(240,82,82,0.55)'), borderRadius: 5 },
+        ]
+      },
+      options: {
+        interaction: { mode: 'index', intersect: false },
+        plugins: { tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.raw)}` } } },
+        scales: { y: { ticks: { callback: v => fmtCorto(v), maxTicksLimit: 6 } }, x: { grid: { display: false } } }
+      }
+    });
+  }
+
+  async function saveGasto(btn) {
+    const body = { concepto: document.getElementById('g-concepto').value.trim(), monto: document.getElementById('g-monto').value, tipo: document.getElementById('g-tipo').value };
+    if (!body.concepto || !(parseFloat(body.monto) > 0)) return toast('Escribe el concepto y el monto', 'error');
+    await conCarga(btn, async () => {
+      try {
+        await api('/api/gastos', { method: 'POST', body });
+        closeModal('modal-gasto');
+        document.getElementById('g-concepto').value = '';
+        document.getElementById('g-monto').value = '';
+        toast('Gasto guardado', 'success');
+        await loadGastos();
+      } catch (e) { toast(e.message, 'error'); }
+    }, 'Guardando...');
+  }
+
+  async function deleteGasto(id) {
+    if (!await confirmar('El gasto dejará de contarse en los cálculos.', { titulo: 'Eliminar gasto', boton: 'Eliminar' })) return;
+    try { await api(`/api/gastos/${id}`, { method: 'DELETE' }); toast('Gasto eliminado', 'info'); loadGastos(); }
+    catch (e) { toast(e.message, 'error'); }
+  }
+
+  init();
 </script>
 {% endblock %}

@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}Mi cuenta{% endblock %}
+{% block page_title %}Mi cuenta{% endblock %}
+
+{% block content %}
+<div class="contenido-angosto">
+  {% if current_user.debe_cambiar_clave %}
+  <div class="alert-banner alert-warning">
+    <span>🔒</span>
+    <div><strong>Antes de seguir, cambia tu contraseña.</strong> La que usaste es una clave por defecto que otras personas conocen.</div>
+  </div>
+  {% endif %}
+
+  <div class="card {{ 'card-resaltada' if current_user.debe_cambiar_clave }}">
+    <div class="card-header"><span class="card-title">Cambiar contraseña</span></div>
+    <form id="form-clave" autocomplete="on" onsubmit="cambiarClave(event)">
+      <input type="email" autocomplete="username" value="{{ current_user.email }}" hidden>
+      <div class="form-group">
+        <label class="form-label" for="clave-actual">Contraseña actual</label>
+        <input class="form-control" type="password" id="clave-actual" autocomplete="current-password" required>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label" for="clave-nueva">Nueva contraseña</label>
+          <input class="form-control" type="password" id="clave-nueva" autocomplete="new-password" minlength="8" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="clave-repetir">Repítela</label>
+          <input class="form-control" type="password" id="clave-repetir" autocomplete="new-password" minlength="8" required>
+        </div>
+      </div>
+      <div class="texto-ayuda" style="margin-bottom:12px">Mínimo 8 caracteres. Una frase corta que recuerdes es más segura que una palabra con símbolos.</div>
+      <button class="btn btn-primary" type="submit" id="btn-clave">Guardar contraseña</button>
+    </form>
+  </div>
+
+  {% if not current_user.debe_cambiar_clave %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">Mi negocio</span></div>
+    <div class="form-row form-row-2">
+      <div class="form-group">
+        <label class="form-label" for="cfg-nombre">Tu nombre</label>
+        <input class="form-control" id="cfg-nombre" maxlength="100">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cfg-empresa">Nombre del negocio</label>
+        <input class="form-control" id="cfg-empresa" maxlength="100">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cfg-meta">Meta de ventas al mes</label>
+        <input class="form-control" id="cfg-meta" type="number" min="0" step="10000" inputmode="numeric" placeholder="Ej: 2000000">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cfg-capital">Lo que invertiste para empezar</label>
+        <input class="form-control" id="cfg-capital" type="number" min="0" step="10000" inputmode="numeric" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cfg-telefono">Teléfono</label>
+        <input class="form-control" id="cfg-telefono" type="tel" maxlength="50">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Correo de acceso</label>
+        <input class="form-control" value="{{ current_user.email }}" disabled>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveConfig(this)">Guardar cambios</button>
+  </div>
+
+  {% if es_admin %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">Personas con acceso</span></div>
+    <div id="usuarios-lista" class="lista-simple"></div>
+    <details class="detalle-stock" style="margin-top:14px">
+      <summary>Agregar una persona</summary>
+      <div class="form-row form-row-2" style="margin-top:12px">
+        <div class="form-group"><label class="form-label" for="u-nombre">Nombre</label><input class="form-control" id="u-nombre"></div>
+        <div class="form-group"><label class="form-label" for="u-email">Correo</label><input class="form-control" id="u-email" type="email" autocomplete="off"></div>
+        <div class="form-group"><label class="form-label" for="u-clave">Contraseña temporal</label><input class="form-control" id="u-clave" type="text" minlength="8" autocomplete="off"></div>
+        <div class="form-group"><label class="form-label" for="u-rol">Puede…</label>
+          <select class="form-control" id="u-rol">
+            <option value="vendedor">Registrar ventas y productos</option>
+            <option value="consultor">Solo ver</option>
+            <option value="admin">Todo (administrador)</option>
+          </select>
+        </div>
+      </div>
+      <div class="texto-ayuda" style="margin-bottom:12px">Al entrar por primera vez se le pedirá cambiar la contraseña.</div>
+      <button class="btn btn-primary btn-sm" onclick="crearUsuario(this)">Agregar</button>
+    </details>
+  </div>
+
+  <div class="card borde-red">
+    <div class="card-header"><span class="card-title">Zona de datos</span></div>
+    <div class="fila-accion">
+      <div><strong>Cargar datos de demostración</strong><div class="texto-ayuda">Productos y 2 meses de ventas inventadas para explorar la app. Reemplaza todo lo que tengas.</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="cargarDemo(this)">Cargar demo</button>
+    </div>
+    <div class="fila-accion">
+      <div><strong>Borrar historial de ventas</strong><div class="texto-ayuda">Conserva productos y gastos. Útil después de probar con la demo.</div></div>
+      <button class="btn btn-danger btn-sm" onclick="limpiar('ventas')">Borrar ventas</button>
+    </div>
+    <div class="fila-accion">
+      <div><strong>Borrar todo</strong><div class="texto-ayuda">Ventas, productos y gastos. No se puede deshacer.</div></div>
+      <button class="btn btn-danger btn-sm" onclick="limpiar('todo')">Borrar todo</button>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function cambiarClave(e) {
+    e.preventDefault();
+    const actual = document.getElementById('clave-actual').value;
+    const nueva = document.getElementById('clave-nueva').value;
+    if (nueva !== document.getElementById('clave-repetir').value) return toast('Las contraseñas nuevas no coinciden', 'error');
+    await conCarga(document.getElementById('btn-clave'), async () => {
+      try {
+        await api('/api/cuenta/clave', { method: 'POST', body: { actual, nueva } });
+        toast('Contraseña actualizada', 'success');
+        setTimeout(() => location.href = '/dashboard', 900);
+      } catch (err) { toast(err.message, 'error'); }
+    }, 'Guardando...');
+  }
+
+  async function loadConfig() {
+    if (!document.getElementById('cfg-empresa')) return;
+    const c = await api('/api/config');
+    document.getElementById('cfg-nombre').value = c.nombre || '';
+    document.getElementById('cfg-empresa').value = c.empresa || '';
+    document.getElementById('cfg-meta').value = c.meta_mensual || '';
+    document.getElementById('cfg-capital').value = c.capital_inicial || '';
+    document.getElementById('cfg-telefono').value = c.telefono || '';
+  }
+
+  async function saveConfig(btn) {
+    const v = id => document.getElementById(id).value;
+    await conCarga(btn, async () => {
+      try {
+        await api('/api/config', { method: 'POST', body: {
+          nombre: v('cfg-nombre'), empresa: v('cfg-empresa'), telefono: v('cfg-telefono'),
+          meta_mensual: v('cfg-meta') || 0, capital_inicial: v('cfg-capital') || 0,
+        } });
+        toast('Cambios guardados', 'success');
+      } catch (e) { toast(e.message, 'error'); }
+    }, 'Guardando...');
+  }
+
+  async function loadUsuarios() {
+    const el = document.getElementById('usuarios-lista');
+    if (!el) return;
+    const us = usuarios = await api('/api/usuarios');
+    const roles = { admin: 'Administrador', vendedor: 'Vende', consultor: 'Solo ver' };
+    el.innerHTML = us.map(u => `
+      <div class="fila-simple">
+        <div><strong>${esc(u.nombre)}</strong><div class="sub-celda">${esc(u.email)}</div></div>
+        <div class="nowrap"><span class="badge badge-dim">${roles[u.rol] || esc(u.rol)}</span>
+          <button class="icon-btn danger" onclick="borrarUsuario(${u.id})" aria-label="Quitar acceso">✕</button></div>
+      </div>`).join('');
+  }
+
+  async function crearUsuario(btn) {
+    const v = id => document.getElementById(id).value.trim();
+    await conCarga(btn, async () => {
+      try {
+        await api('/api/usuarios', { method: 'POST', body: { nombre: v('u-nombre'), email: v('u-email'), clave: v('u-clave'), rol: v('u-rol') } });
+        toast('Persona agregada', 'success');
+        ['u-nombre', 'u-email', 'u-clave'].forEach(id => document.getElementById(id).value = '');
+        loadUsuarios();
+      } catch (e) { toast(e.message, 'error'); }
+    }, 'Agregando...');
+  }
+
+  let usuarios = [];
+  async function borrarUsuario(id) {
+    const email = (usuarios.find(u => u.id === id) || {}).email;
+    if (!await confirmar(`${email} ya no podrá entrar a la app.`, { titulo: 'Quitar acceso', boton: 'Quitar' })) return;
+    try { await api(`/api/usuarios/${id}`, { method: 'DELETE' }); toast('Acceso eliminado', 'info'); loadUsuarios(); }
+    catch (e) { toast(e.message, 'error'); }
+  }
+
+  function pedirBorrar(texto) {
+    const r = prompt(`${texto}\n\nEscribe BORRAR para confirmar:`);
+    return r && r.trim().toUpperCase() === 'BORRAR';
+  }
+
+  async function cargarDemo(btn) {
+    const body = {};
+    if (!await confirmar('Se reemplazarán tus productos, ventas y gastos por datos de ejemplo.', { titulo: 'Cargar demo', boton: 'Continuar' })) return;
+    await conCarga(btn, async () => {
+      try {
+        let d;
+        try { d = await api('/api/demo-data', { method: 'POST', body }); }
+        catch (e) {
+          if (!/BORRAR/.test(e.message) || !pedirBorrar(e.message)) throw e;
+          d = await api('/api/demo-data', { method: 'POST', body: { confirmar: 'BORRAR' } });
+        }
+        toast(d.mensaje, 'success');
+      } catch (e) { if (e.message) toast(e.message, 'error'); }
+    }, 'Cargando...');
+  }
+
+  async function limpiar(tipo) {
+    const texto = tipo === 'todo' ? 'Se borrarán ventas, productos y gastos.' : 'Se borrará todo el historial de ventas.';
+    if (!pedirBorrar(texto)) return;
+    try {
+      const d = await api(`/api/datos?tipo=${tipo}&confirmar=BORRAR`, { method: 'DELETE' });
+      toast(d.mensaje, 'success');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  loadConfig().catch(e => toast(e.message, 'error'));
+  loadUsuarios().catch(e => toast(e.message, 'error'));
+</script>
+{% endblock %}

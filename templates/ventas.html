@@ -1,294 +1,269 @@
 {% extends "base.html" %}
 {% block title %}Ventas{% endblock %}
-{% block page_title %}Análisis de Ventas{% endblock %}
+{% block page_title %}Ventas{% endblock %}
 
 {% block topbar_actions %}
-<div class="tabs" style="margin:0;flex:0 0 auto">
-  <button class="tab active" onclick="setPeriodo('dia',this)">Hoy</button>
-  <button class="tab" onclick="setPeriodo('semana',this)">Semana</button>
-  <button class="tab" onclick="setPeriodo('mes',this)">Mes</button>
-  <button class="tab" onclick="setPeriodo('todo',this)">Todo</button>
-</div>
+{% if puede_editar %}
+<button class="btn btn-ghost btn-sm ocultar-movil" onclick="openModal('modal-importar')">Importar Excel</button>
+{% endif %}
 {% endblock %}
 
 {% block content %}
-<!-- Upload -->
-<div class="card" style="margin-bottom:24px">
-  <div class="card-header">
-    <span class="card-title">📤 Subir Archivo de Ventas (Excel)</span>
-    <a href="#" onclick="showFormatHelp()" class="btn btn-ghost btn-sm">Ver formato</a>
+<div class="filtro-bar">
+  <div class="tabs" id="tabs-periodo">
+    <button class="tab" data-p="dia">Hoy</button>
+    <button class="tab" data-p="semana">Semana</button>
+    <button class="tab active" data-p="mes">Mes</button>
+    <button class="tab" data-p="mes_anterior">Mes pasado</button>
+    <button class="tab" data-p="anio">Año</button>
+    <button class="tab" data-p="todo">Todo</button>
   </div>
-  <div class="upload-zone" id="upload-zone">
-    <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
-    <div class="upload-icon">📊</div>
-    <div class="upload-title">Arrastra tu Excel aquí o haz clic</div>
-    <div class="upload-sub">Columnas requeridas: producto, cantidad, precio_unitario<br>Opcionales: fecha, categoria,
-      costo_unitario</div>
-  </div>
-  <div id="upload-progress" style="display:none;margin-top:16px">
-    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px">
-      <span id="upload-status">Procesando...</span>
-    </div>
-    <div class="progress-bar">
-      <div class="progress-fill" id="prog-bar" style="width:0%"></div>
-    </div>
-  </div>
-  <div id="upload-result" style="margin-top:12px"></div>
+  <div class="filtro-rango" id="periodo-label"></div>
 </div>
 
-<!-- Estrella / Peor -->
-<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px">
-  <div class="card kpi-card anim-1" id="card-estrella">
-    <div class="kpi-icon">⭐</div>
-    <div class="kpi-label">Producto Estrella</div>
-    <div class="kpi-value blue" id="estrella-nombre" style="font-size:18px">—</div>
-    <div class="kpi-delta" id="estrella-ing">Carga ventas para ver</div>
+<div class="stat-strip">
+  <div class="stat"><span class="stat-label">Vendido</span><span class="stat-value blue" id="t-ventas">—</span></div>
+  <div class="stat"><span class="stat-label">Ganancia</span><span class="stat-value green" id="t-util">—</span></div>
+  <div class="stat"><span class="stat-label">Margen</span><span class="stat-value" id="t-margen">—</span></div>
+  <div class="stat"><span class="stat-label">Ventas</span><span class="stat-value" id="t-tx">—</span></div>
+  <div class="stat"><span class="stat-label">Unidades</span><span class="stat-value" id="t-unid">—</span></div>
+</div>
+
+<div class="grid-3">
+  <div class="kpi-card highlight-green anim-1">
+    <div class="kpi-label">★ Producto estrella</div>
+    <div class="kpi-value kpi-nombre" id="estrella-nombre">—</div>
+    <div class="kpi-delta" id="estrella-ing">El que más ganancia te deja</div>
   </div>
-  <div class="card kpi-card anim-2" id="card-peor">
-    <div class="kpi-icon">📉</div>
-    <div class="kpi-label">A Mejorar / Promover</div>
-    <div class="kpi-value red" id="peor-nombre" style="font-size:18px">—</div>
-    <div class="kpi-delta" id="peor-ing"></div>
+  <div class="kpi-card anim-2">
+    <div class="kpi-label"># Más vendido</div>
+    <div class="kpi-value kpi-nombre" id="masv-nombre">—</div>
+    <div class="kpi-delta" id="masv-ing">&nbsp;</div>
   </div>
-  <div class="card kpi-card anim-3">
-    <div class="kpi-icon">🏷️</div>
-    <div class="kpi-label">Categorías Activas</div>
-    <div class="kpi-value" id="cat-count">—</div>
-    <div class="kpi-delta" id="cat-top"></div>
+  <div class="kpi-card highlight-orange anim-3">
+    <div class="kpi-label">↓ Menor ganancia</div>
+    <div class="kpi-value kpi-nombre" id="peor-nombre">—</div>
+    <div class="kpi-delta" id="peor-ing">&nbsp;</div>
   </div>
 </div>
 
-<!-- Charts Row -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+<div class="grid-2">
   <div class="card">
-    <div class="card-header"><span class="card-title">🏆 Top 5 Productos</span></div>
+    <div class="card-header"><span class="card-title">Top 5 por ventas</span></div>
     <div class="chart-container" style="height:240px"><canvas id="chart-top"></canvas></div>
   </div>
   <div class="card">
-    <div class="card-header"><span class="card-title">📂 Por Categoría</span></div>
+    <div class="card-header"><span class="card-title">Por categoría</span></div>
     <div class="chart-container" style="height:240px"><canvas id="chart-cat"></canvas></div>
   </div>
 </div>
 
-<!-- Tabla -->
 <div class="card">
-  <div class="card-header">
-    <span class="card-title">📋 Detalle de Productos</span>
-    <input class="form-control" style="width:220px;padding:7px 12px;font-size:13px" placeholder="🔍 Buscar producto..."
-      oninput="filterTable(this.value)">
+  <div class="card-header wrap">
+    <div class="tabs tabs-sm" id="tabs-vista">
+      <button class="tab active" data-v="productos">Por producto</button>
+      <button class="tab" data-v="historial">Historial de ventas</button>
+    </div>
+    <input class="form-control buscador" placeholder="Buscar producto…" id="buscar" type="search">
   </div>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Producto</th>
-          <th>Categoría</th>
-          <th>Cantidad</th>
-          <th>Ingresos</th>
-          <th>Utilidad</th>
-          <th>Margen</th>
-          <th>Estado</th>
-        </tr>
-      </thead>
-      <tbody id="tabla-ventas"></tbody>
-    </table>
+
+  <div id="vista-productos">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Producto</th><th>Categoría</th><th class="num">Unid.</th><th class="num">Vendido</th><th class="num">Ganancia</th><th class="num">Margen</th></tr></thead>
+        <tbody id="tabla-ventas"></tbody>
+      </table>
+    </div>
   </div>
-  <div id="tabla-empty" class="empty-state" style="display:none">
-    <div class="empty-icon">📊</div>
-    <div class="empty-title">Sin datos de ventas</div>
-    <div class="empty-sub">Sube un archivo Excel para comenzar</div>
+
+  <div id="vista-historial" hidden>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Producto</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Total</th><th class="num">Ganancia</th>{% if puede_editar %}<th></th>{% endif %}</tr></thead>
+        <tbody id="tabla-historial"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tabla-empty" class="empty-state" hidden>
+    <div class="empty-icon">🧾</div>
+    <div class="empty-title">No hay ventas en este período</div>
+    <div class="empty-sub">{% if puede_editar %}Usa “Registrar venta” o importa un Excel{% else %}Prueba con otro período{% endif %}</div>
   </div>
 </div>
 
-<!-- Format Help Modal -->
-<div class="modal-overlay" id="modal-format">
-  <div class="modal">
-    <div class="modal-title">📋 Formato del Excel de Ventas</div>
-    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Columnas reconocidas automáticamente:</p>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Columna</th>
-            <th>¿Requerida?</th>
-            <th>Ejemplo</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><code>fecha</code></td>
-            <td><span class="badge badge-dim">Opcional</span></td>
-            <td>2024-01-15</td>
-          </tr>
-          <tr>
-            <td><code>producto</code></td>
-            <td><span class="badge badge-red">Requerida</span></td>
-            <td>Camiseta Básica</td>
-          </tr>
-          <tr>
-            <td><code>categoria</code></td>
-            <td><span class="badge badge-dim">Opcional</span></td>
-            <td>Ropa</td>
-          </tr>
-          <tr>
-            <td><code>cantidad</code></td>
-            <td><span class="badge badge-red">Requerida</span></td>
-            <td>5</td>
-          </tr>
-          <tr>
-            <td><code>precio_unitario</code></td>
-            <td><span class="badge badge-red">Requerida</span></td>
-            <td>45000</td>
-          </tr>
-          <tr>
-            <td><code>costo_unitario</code></td>
-            <td><span class="badge badge-dim">Opcional</span></td>
-            <td>20000</td>
-          </tr>
-        </tbody>
-      </table>
+{% if puede_editar %}
+<!-- Modal Importar -->
+<div class="modal-overlay" id="modal-importar">
+  <div class="modal" style="width:min(560px,95vw)">
+    <div class="modal-head">
+      <div class="modal-title">Importar ventas desde Excel</div>
+      <button class="icon-btn" onclick="closeModal('modal-importar')" aria-label="Cerrar">✕</button>
     </div>
-    <div class="alert-banner alert-info" style="margin-top:14px">💡 Si no incluyes costo, se estimará como el 60% del
-      precio.</div>
-    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('modal-format')">Entendido</button>
+    <p class="texto-ayuda">Sirve para pasar de una vez muchas ventas que tengas en una hoja de cálculo (.xlsx o .csv).
+      Columnas: <code>producto</code> y <code>cantidad</code> (obligatorias), <code>fecha</code>, <code>precio_unitario</code>,
+      <code>costo_unitario</code> y <code>categoria</code>. Si falta el precio o el costo se toman del catálogo.</p>
+    <button class="btn btn-ghost btn-sm" style="margin-bottom:14px" onclick="descargar('/api/plantilla/ventas','plantilla_ventas.xlsx')">⬇ Descargar plantilla</button>
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" accept=".xlsx,.xls,.csv" aria-label="Archivo de ventas">
+      <div class="upload-icon">📄</div>
+      <div class="upload-title">Arrastra el archivo aquí o toca para elegirlo</div>
+      <div class="upload-sub">Ojo: si subes el mismo archivo dos veces, las ventas quedarán repetidas</div>
     </div>
+    <div id="upload-result" style="margin-top:12px"></div>
   </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
-  let currentPeriodo = 'mes';
-  let allProductos = [];
+  let periodo = new URLSearchParams(location.search).get('periodo') || 'mes';
+  let vista = 'productos';
+  let datos = { productos: [], historial: [] };
   let chartTop = null, chartCat = null;
 
-  function setPeriodo(p, el) {
-    currentPeriodo = p;
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-    loadAnalisis();
+  document.querySelectorAll('#tabs-periodo .tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.p === periodo);
+    t.onclick = () => {
+      periodo = t.dataset.p;
+      document.querySelectorAll('#tabs-periodo .tab').forEach(x => x.classList.toggle('active', x === t));
+      cargar();
+    };
+  });
+  document.querySelectorAll('#tabs-vista .tab').forEach(t => t.onclick = () => {
+    vista = t.dataset.v;
+    document.querySelectorAll('#tabs-vista .tab').forEach(x => x.classList.toggle('active', x === t));
+    render();
+  });
+  document.getElementById('buscar').addEventListener('input', render);
+
+  async function cargar() {
+    let d, h;
+    try {
+      [d, h] = await Promise.all([
+        api(`/api/ventas/analisis?periodo=${periodo}`),
+        api(`/api/ventas/lista?periodo=${periodo}&limite=500`),
+      ]);
+    } catch (e) { toast(e.message, 'error'); return; }
+    datos = { productos: d.productos, historial: h.ventas };
+
+    document.getElementById('periodo-label').textContent = `${d.periodo} · ${fechaCorta(d.rango.inicio)} – ${fechaCorta(d.rango.fin)}`;
+    const t = d.totales;
+    document.getElementById('t-ventas').textContent = fmt(t.ventas);
+    document.getElementById('t-util').textContent = fmt(t.utilidad);
+    document.getElementById('t-margen').textContent = t.ventas ? `${t.margen}%` : '—';
+    document.getElementById('t-tx').textContent = t.transacciones;
+    document.getElementById('t-unid').textContent = t.unidades;
+
+    const tarjeta = (id, p, texto) => {
+      document.getElementById(`${id}-nombre`).textContent = p ? p.nombre : '—';
+      document.getElementById(`${id}-ing`).textContent = p ? texto(p) : 'Sin datos en este período';
+    };
+    tarjeta('estrella', d.estrella, p => `Ganancia ${fmt(p.utilidad)} · ${p.margen}% margen`);
+    tarjeta('masv', d.mas_vendido, p => `${p.cantidad} unidades · ${fmt(p.ingreso)}`);
+    tarjeta('peor', d.peor, p => `Ganancia ${fmt(p.utilidad)} · ${p.cantidad} unid.`);
+
+    buildChartTop(d.top5);
+    buildChartCat(d.categorias);
+    render();
   }
 
-  async function loadAnalisis() {
-    const r = await fetch(`/api/ventas/analisis?periodo=${currentPeriodo}`);
-    const d = await r.json();
-    allProductos = d.productos || [];
+  function render() {
+    const q = document.getElementById('buscar').value.trim().toLowerCase();
+    const filtra = s => !q || String(s).toLowerCase().includes(q);
+    document.getElementById('vista-productos').hidden = vista !== 'productos';
+    document.getElementById('vista-historial').hidden = vista !== 'historial';
 
-    // Cards
-    if (d.estrella) {
-      document.getElementById('estrella-nombre').textContent = d.estrella.nombre;
-      document.getElementById('estrella-ing').textContent = `${fmt(d.estrella.ingreso)} · ${d.estrella.cantidad} unid. · ${d.estrella.margen}% margen`;
+    let vacio;
+    if (vista === 'productos') {
+      const lista = datos.productos.filter(p => filtra(p.nombre) || filtra(p.categoria));
+      vacio = !lista.length;
+      document.getElementById('tabla-ventas').innerHTML = lista.map(p => `
+        <tr><td><strong>${esc(p.nombre)}</strong></td><td><span class="badge badge-dim">${esc(p.categoria)}</span></td>
+        <td class="num">${p.cantidad}</td><td class="num">${fmt(p.ingreso)}</td><td class="num">${fmt(p.utilidad)}</td>
+        <td class="num"><span class="${p.margen >= 30 ? 'green' : p.margen < 15 ? 'red' : ''}">${p.margen}%</span></td></tr>`).join('');
+    } else {
+      const lista = datos.historial.filter(v => filtra(v.producto));
+      vacio = !lista.length;
+      document.getElementById('tabla-historial').innerHTML = lista.map(v => `
+        <tr><td class="nowrap">${fechaCorta(v.fecha)}</td><td><strong>${esc(v.producto)}</strong></td>
+        <td class="num">${v.cantidad}</td><td class="num">${fmt(v.precio_unitario)}</td><td class="num">${fmt(v.ingreso)}</td>
+        <td class="num ${v.utilidad >= 0 ? 'green' : 'red'}">${fmt(v.utilidad)}</td>
+        ${PUEDE_EDITAR ? `<td class="num"><button class="icon-btn danger" title="Eliminar venta" onclick="eliminarVenta(${v.id})">🗑</button></td>` : ''}</tr>`).join('');
     }
-    if (d.peor) {
-      document.getElementById('peor-nombre').textContent = d.peor.nombre;
-      document.getElementById('peor-ing').textContent = `${fmt(d.peor.ingreso)} · Margen: ${d.peor.margen}%`;
-    }
-    document.getElementById('cat-count').textContent = d.categorias.length || '0';
-    document.getElementById('cat-top').textContent = d.categorias[0] ? `Top: ${d.categorias[0].nombre}` : '';
+    document.getElementById('tabla-empty').hidden = !vacio;
+  }
 
-    // Charts
-    buildChartTop(d.top5 || []);
-    buildChartCat(d.categorias || []);
-
-    // Table
-    renderTable(allProductos);
+  async function eliminarVenta(id) {
+    const v = datos.historial.find(x => x.id === id);
+    const ok = await confirmar(`Se eliminará la venta de ${v.cantidad} × ${v.producto} (${fmt(v.ingreso)}) del ${fechaCorta(v.fecha)}. Si el producto está en el catálogo, las unidades vuelven al stock.`,
+      { titulo: 'Eliminar venta', boton: 'Eliminar' });
+    if (!ok) return;
+    try {
+      await api(`/api/ventas/${id}`, { method: 'DELETE' });
+      toast('Venta eliminada', 'success');
+      cargar();
+    } catch (e) { toast(e.message, 'error'); }
   }
 
   function buildChartTop(data) {
-    const ctx = document.getElementById('chart-top').getContext('2d');
+    const ctx = document.getElementById('chart-top');
     if (chartTop) chartTop.destroy();
     chartTop = new Chart(ctx, {
       type: 'bar',
-      data: { labels: data.map(p => p.nombre.length > 14 ? p.nombre.slice(0, 14) + '…' : p.nombre), datasets: [{ label: 'Ingresos', data: data.map(p => p.ingreso), backgroundColor: 'rgba(0,113,227,0.7)', borderRadius: 6, borderSkipped: false }] },
-      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1c1c1e', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, callbacks: { label: c => ' ' + fmt(c.raw) } } }, scales: { x: { ticks: { color: '#424245', callback: v => fmt(v) }, grid: { color: 'rgba(255,255,255,0.04)' } }, y: { ticks: { color: '#86868b' } } } }
+      data: {
+        labels: data.map(p => p.nombre.length > 18 ? p.nombre.slice(0, 18) + '…' : p.nombre),
+        datasets: [
+          { label: 'Vendido', data: data.map(p => p.ingreso), backgroundColor: 'rgba(59,158,255,0.75)', borderRadius: 6 },
+          { label: 'Ganancia', data: data.map(p => p.utilidad), backgroundColor: 'rgba(34,211,165,0.75)', borderRadius: 6 },
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        plugins: { tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.raw)}` } } },
+        scales: { x: { ticks: { callback: v => fmtCorto(v), maxTicksLimit: 5 } }, y: { grid: { display: false } } }
+      }
     });
   }
 
   function buildChartCat(data) {
-    const ctx = document.getElementById('chart-cat').getContext('2d');
+    const ctx = document.getElementById('chart-cat');
     if (chartCat) chartCat.destroy();
-    const colors = ['#0071e3', '#30d158', '#ff9f0a', '#ff453a', '#5856d6', '#64d2ff'];
+    const colors = ['#3b9eff', '#22d3a5', '#f59e0b', '#a78bfa', '#f05252', '#64d2ff', '#f472b6', '#94a3b8'];
     chartCat = new Chart(ctx, {
       type: 'doughnut',
-      data: { labels: data.map(c => c.nombre), datasets: [{ data: data.map(c => c.ingreso), backgroundColor: colors.slice(0, data.length), borderWidth: 0, hoverOffset: 8 }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#86868b', font: { family: 'Inter', size: 12 }, padding: 12 } }, tooltip: { backgroundColor: '#1c1c1e', callbacks: { label: c => ` ${c.label}: ${fmt(c.raw)}` } } }, cutout: '65%' }
+      data: { labels: data.map(c => c.nombre), datasets: [{ data: data.map(c => c.ingreso), backgroundColor: colors, borderWidth: 0, hoverOffset: 8 }] },
+      options: {
+        cutout: '64%',
+        plugins: {
+          legend: { position: window.innerWidth < 600 ? 'bottom' : 'right', labels: { padding: 12 } },
+          tooltip: { callbacks: { label: c => ` ${c.label}: ${fmt(c.raw)}` } }
+        }
+      }
     });
   }
 
-  function renderTable(data) {
-    const tbody = document.getElementById('tabla-ventas');
-    const empty = document.getElementById('tabla-empty');
-    if (!data.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
-    empty.style.display = 'none';
-    tbody.innerHTML = data.map(p => {
-      const margenClass = p.margen > 30 ? 'green' : p.margen > 15 ? '' : 'red';
-      const estado = p.ingreso === data[0].ingreso ? '<span class="badge badge-blue">⭐ Estrella</span>' : p.ingreso === data[data.length - 1].ingreso ? '<span class="badge badge-orange">📉 Bajo</span>' : '<span class="badge badge-dim">Normal</span>';
-      return `<tr><td><strong>${p.nombre}</strong></td><td><span class="badge badge-dim">${p.categoria}</span></td><td>${p.cantidad}</td><td>${fmt(p.ingreso)}</td><td>${fmt(p.utilidad)}</td><td><span style="color:var(--${margenClass || 'text'})">${p.margen}%</span></td><td>${estado}</td></tr>`;
-    }).join('');
-  }
-
-  function filterTable(q) {
-    const f = allProductos.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase()) || p.categoria.toLowerCase().includes(q.toLowerCase()));
-    renderTable(f);
-  }
-
-  // Upload
-  function handleFileSelect(e) {
-    const file = e.target.files[0];
-    if (file) uploadFile(file);
-  }
-
-  const zone = document.getElementById('upload-zone');
-  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-  zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f) uploadFile(f); });
-
-  async function uploadFile(file) {
-    const prog = document.getElementById('upload-progress');
-    const bar = document.getElementById('prog-bar');
-    const status = document.getElementById('upload-status');
-    const result = document.getElementById('upload-result');
-    prog.style.display = 'block'; bar.style.width = '30%'; status.textContent = 'Leyendo archivo...';
-    const fd = new FormData(); fd.append('file', file);
+  // Importación
+  conectarZonaCarga(document.getElementById('upload-zone'), async (file) => {
+    const res = document.getElementById('upload-result');
+    res.innerHTML = '<div class="alert-banner alert-info"><span class="spinner"></span> Procesando archivo…</div>';
+    const fd = new FormData();
+    fd.append('file', file);
     try {
-      bar.style.width = '60%'; status.textContent = 'Procesando ventas...';
-      const r = await fetch('/api/upload-ventas', { method: 'POST', body: fd });
-      const d = await r.json();
-      bar.style.width = '100%';
-      if (d.success) {
-        status.textContent = '¡Completado!';
-        result.innerHTML = `<div class="alert-banner alert-success">✅ ${d.insertadas} ventas importadas correctamente</div>`;
-        toast(`${d.insertadas} ventas importadas exitosamente`, 'success');
-        setTimeout(() => { prog.style.display = 'none'; loadAnalisis(); }, 1500);
-      } else {
-        result.innerHTML = `<div class="alert-banner alert-danger">❌ ${d.error}</div>`;
-        toast('Error al procesar el archivo', 'error'); bar.style.width = '0%';
-      }
-    } catch (e) { result.innerHTML = `<div class="alert-banner alert-danger">❌ Error de conexión</div>`; }
-  }
+      const d = await api('/api/upload-ventas', { method: 'POST', body: fd });
+      let html = `<div class="alert-banner alert-success">✓ ${d.insertadas} ventas importadas</div>`;
+      if (d.sin_costo) html += `<div class="alert-banner alert-warning">${d.sin_costo} ventas sin costo conocido: su ganancia aparece igual al precio. Agrega esos productos al catálogo con su costo.</div>`;
+      if (d.total_errores) html += `<div class="alert-banner alert-danger"><div>${d.total_errores} filas no se importaron:<ul class="lista-errores">${d.errores.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div></div>`;
+      res.innerHTML = html;
+      toast(`${d.insertadas} ventas importadas`, 'success');
+      cargar();
+    } catch (e) {
+      res.innerHTML = `<div class="alert-banner alert-danger">${esc(e.message)}</div>`;
+    }
+  });
 
-  function descargarPlantillaVentas() {
-    const data = [
-      ['fecha', 'producto', 'categoria', 'cantidad', 'precio_unitario', 'costo_unitario'],
-      ['2024-01-15', 'Camiseta Básica', 'Ropa', 3, 45000, 20000],
-      ['2024-01-15', 'Jeans Premium', 'Ropa', 2, 120000, 60000],
-      ['2024-01-16', 'Zapatillas Sport', 'Calzado', 1, 180000, 90000]
-    ];
-
-    const csv = data.map(row => row.join(',')).join('\n');
-    const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'plantilla_ventas.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-    toast('Plantilla descargada', 'success');
-  }
-
-  function showFormatHelp() { document.getElementById('modal-format').classList.add('open'); }
-  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-  loadAnalisis();
+  document.addEventListener('venta-registrada', cargar);
+  cargar();
 </script>
 {% endblock %}
