@@ -92,14 +92,17 @@ duplicados, gastos, proyección, pronóstico, reportes Excel/PDF por período, c
 
 ## Lo que falta hacer (requiere acción tuya)
 
-1. **Configurar una base de datos permanente (lo más importante).** Sin esto, todo lo que registre tu hija
-   se borra cuando Render reinicia la app. Opción gratuita recomendada: Supabase.
-   1. Crear un proyecto en <https://supabase.com> (plan gratuito).
-   2. En *Project Settings → Database → Connection string* copiar la URI del **Session pooler**
-      (`postgresql://postgres.xxxx:CLAVE@aws-0-...pooler.supabase.com:5432/postgres`).
-   3. En Render → servicio *inventa* → *Environment*, agregar `DATABASE_URL` con ese valor.
-   4. Agregar también `ADMIN_EMAIL` (el correo de tu hija) y `ADMIN_PASSWORD` (una clave temporal).
-   5. Guardar: Render redespliega y crea las tablas solo.
+1. **Conectar la base de datos permanente (lo más importante).** Sin esto, todo lo que registre tu hija
+   se borra cuando Render reinicia la app.
+   - ✅ Ya creada (12/10/2026): proyecto Supabase `inventa-pro` (plan gratuito, región us-west-1), con un usuario
+     exclusivo `inventa_app` y un esquema privado `inventa` que no queda expuesto en la API pública de Supabase.
+     Probada con la app completa y dejada vacía.
+   - La cadena de conexión está en `instance/DATABASE_URL_para_Render.txt` (solo en el computador; no se sube a GitHub).
+   1. En Render → servicio *inventa* → *Environment*, agregar `DATABASE_URL` con el contenido de ese archivo.
+   2. Agregar también `ADMIN_EMAIL` (el correo de tu hija) y `ADMIN_PASSWORD` (una clave temporal).
+   3. Guardar: Render redespliega y crea el usuario administrador.
+   - Ojo: Supabase pausa los proyectos gratuitos tras 7 días sin actividad. Con uso diario no pasa; si ocurre,
+     se reactiva desde el panel de Supabase sin perder datos.
 2. **Entrar y cambiar la contraseña** en *Mi cuenta*. Si no se definió `ADMIN_PASSWORD`, el usuario inicial es
    `admin@inventa.com` con la clave anterior y la app obliga a cambiarla en el primer ingreso.
 3. **Cargar los productos reales** (uno por uno o con la plantilla de Excel) con su costo, y poner la meta mensual.
